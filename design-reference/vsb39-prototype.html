@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ВСБ39 — Ваша Система Безопасности</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#EEF2FF;font-family:'Plus Jakarta Sans',-apple-system,sans-serif;}
+  input,select,button{font-family:'Plus Jakarta Sans',-apple-system,sans-serif;}
+  button:hover{opacity:0.88;}
+  input:focus{border-color:#2563EB !important;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef } = React;
+
+/* ── Design Tokens ── */
+const T = {
+  bg:'#EEF2FF', card:'#FFFFFF', ink:'#0F172A', sub:'#475569', muted:'#94A3B8',
+  border:'rgba(15,23,42,0.08)',
+  blue:'#2563EB', blueLight:'#EFF6FF',
+  orange:'#F97316', orangeLight:'#FFF7ED',
+  purple:'#7C3AED', purpleLight:'#F5F3FF',
+  green:'#16A34A', greenLight:'#F0FDF4',
+  red:'#DC2626', redLight:'#FEF2F2',
+  font:"'Plus Jakarta Sans',-apple-system,sans-serif",
+  r:{xs:6,sm:10,md:14,lg:18,xl:24,full:999},
+  sh:{
+    xs:'0 1px 2px rgba(0,0,0,0.05)',
+    sm:'0 1px 4px rgba(0,0,0,0.06),0 4px 12px rgba(0,0,0,0.06)',
+    md:'0 4px 16px rgba(0,0,0,0.08),0 1px 4px rgba(0,0,0,0.04)',
+    lg:'0 12px 40px rgba(0,0,0,0.12)',
+    xl:'0 24px 80px rgba(0,0,0,0.18)',
+    blue:'0 8px 24px rgba(37,99,235,0.32)',
+    orange:'0 8px 24px rgba(249,115,22,0.35)',
+    purple:'0 8px 24px rgba(124,58,237,0.3)',
+  },
+};
+
+/* ── Primitives ── */
+const Badge = ({children, color=T.blue, bg, style:st={}}) => (
+  <span style={{fontFamily:T.font,fontSize:12,fontWeight:600,color,background:bg||color+'1a',padding:'3px 10px',borderRadius:T.r.full,display:'inline-flex',alignItems:'center',gap:4,whiteSpace:'nowrap',...st}}>{children}</span>
+);
+
+const Chip = ({label, active, onClick, icon}) => (
+  <button onClick={onClick} style={{fontFamily:T.font,fontSize:14,fontWeight:active?600:500,color:active?'#fff':T.sub,background:active?T.blue:'#fff',border:`1.5px solid ${active?T.blue:T.border}`,borderRadius:T.r.full,padding:'7px 18px',cursor:'pointer',whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:6,boxShadow:active?T.sh.blue:'none',transition:'all 0.15s'}}>{icon&&<span>{icon}</span>}{label}</button>
+);
+
+const Btn = ({children, onClick, color=T.blue, outline=false, size='md', style:st={}, icon}) => {
+  const pad = size==='sm'?'7px 16px':size==='lg'?'14px 32px':'11px 22px';
+  const fs = size==='sm'?13:size==='lg'?17:15;
+  if (outline) return (
+    <button onClick={onClick} style={{fontFamily:T.font,fontSize:fs,fontWeight:600,color:T.ink,background:T.card,border:`1.5px solid ${T.border}`,borderRadius:T.r.md,padding:pad,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:6,boxShadow:T.sh.xs,transition:'all 0.15s',...st}}>{icon&&<span>{icon}</span>}{children}</button>
+  );
+  return (
+    <button onClick={onClick} style={{fontFamily:T.font,fontSize:fs,fontWeight:700,color:'#fff',background:color,border:'none',borderRadius:T.r.md,padding:pad,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:8,boxShadow:`0 6px 20px ${color}44`,transition:'all 0.15s',...st}}>{icon&&<span>{icon}</span>}{children}</button>
+  );
+};
+
+const Card = ({children, style:st={}, onClick, pad}) => (
+  <div onClick={onClick} style={{background:T.card,borderRadius:T.r.lg,boxShadow:T.sh.sm,border:`1px solid ${T.border}`,overflow:'hidden',...(pad?{padding:pad}:{}),...st}}>{children}</div>
+);
+
+const ImgPH = ({h=200, icon='📷'}) => (
+  <div style={{height:h,background:`linear-gradient(145deg,#F1F5F9,#E2E8F0)`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:8}}>
+    <span style={{fontSize:h>120?36:24,opacity:0.3}}>{icon}</span>
+  </div>
+);
+
+/* ── Navigation ── */
+const Nav = ({page, setPage, calcCount=0}) => (
+  <div style={{position:'sticky',top:0,zIndex:200,background:'rgba(255,255,255,0.85)',backdropFilter:'blur(24px)',WebkitBackdropFilter:'blur(24px)',borderBottom:`1px solid ${T.border}`,height:64,display:'flex',alignItems:'center',padding:'0 40px',gap:20}}>
+    <div onClick={()=>setPage('home')} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
+      <div style={{width:38,height:38,borderRadius:11,background:'linear-gradient(135deg,#0F172A,#1E3A5F)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 14px rgba(15,23,42,0.35)'}}>
+        <span style={{fontSize:13,fontWeight:800,color:'#fff',letterSpacing:-0.5}}>ВС<span style={{color:T.orange}}>Б</span></span>
+      </div>
+      <div>
+        <div style={{fontSize:17,fontWeight:800,color:T.ink,lineHeight:1.1}}>ВСБ<span style={{color:T.orange}}>39</span></div>
+        <div style={{fontSize:10,color:T.muted,letterSpacing:0.4,lineHeight:1}}>Видим. Стережём. Бережём.</div>
+      </div>
+    </div>
+    <div style={{flex:1}}/>
+    {[['Каталог','catalog'],['Монтаж','service'],['О нас','about'],['Контакты','contact']].map(([l,pg])=>(
+      <button key={pg} onClick={()=>setPage(pg)} style={{fontFamily:T.font,fontSize:14,fontWeight:500,color:page===pg?T.blue:T.sub,background:'none',border:'none',cursor:'pointer',padding:'4px 8px',borderBottom:page===pg?`2px solid ${T.blue}`:'2px solid transparent'}}>{l}</button>
+    ))}
+    <div style={{flex:1}}/>
+    <Btn outline size="sm" onClick={()=>setPage('calc')}>
+      🧮 Смета {calcCount>0&&<Badge color={T.orange}>{calcCount}</Badge>}
+    </Btn>
+    <Btn size="sm" color={T.orange}>📞 Звонок</Btn>
+  </div>
+);
+
+/* ── Product Card ── */
+const ProductCard = ({name, price, oldPrice, tag, tagColor=T.green, onClick, onCalc, icon='📷'}) => (
+  <Card onClick={onClick} style={{cursor:'pointer',transition:'transform 0.15s,box-shadow 0.15s',display:'flex',flexDirection:'column'}}>
+    <ImgPH h={160} icon={icon} />
+    <div style={{padding:'14px 16px 16px',display:'flex',flexDirection:'column',gap:8,flex:1}}>
+      {tag&&<div><Badge color={tagColor}>{tag}</Badge></div>}
+      <div style={{fontFamily:T.font,fontSize:14,fontWeight:600,color:T.ink,lineHeight:1.35,flex:1}}>{name}</div>
+      <div style={{display:'flex',alignItems:'baseline',gap:8}}>
+        <span style={{fontFamily:T.font,fontSize:18,fontWeight:800,color:T.ink}}>{price}</span>
+        {oldPrice&&<span style={{fontFamily:T.font,fontSize:13,color:T.muted,textDecoration:'line-through'}}>{oldPrice}</span>}
+      </div>
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={e=>{e.stopPropagation();onCalc&&onCalc();}} style={{flex:1,fontFamily:T.font,fontSize:13,fontWeight:700,color:'#fff',background:T.blue,border:'none',borderRadius:T.r.sm,padding:'9px 0',cursor:'pointer'}}>+ В смету</button>
+        <button onClick={e=>{e.stopPropagation();onClick&&onClick();}} style={{width:36,background:T.blueLight,border:'none',borderRadius:T.r.sm,cursor:'pointer',color:T.blue,fontSize:16}}>↗</button>
+      </div>
+    </div>
+  </Card>
+);
+
+/* ══════════════════════════
+   HOME PAGE
+══════════════════════════ */
+const HomePage = ({setPage, onAddToCalc}) => {
+  const [q, setQ] = useState('');
+  return (
+    <div>
+      {/* ── Hero ── */}
+      <div style={{background:'linear-gradient(155deg,#07101E 0%,#0D2252 55%,#150F35 100%)',padding:'88px 40px 108px',position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',top:-120,right:-120,width:700,height:700,borderRadius:'50%',background:'radial-gradient(circle,rgba(37,99,235,0.18) 0%,transparent 65%)',pointerEvents:'none'}}/>
+        <div style={{position:'absolute',bottom:-80,left:-80,width:500,height:500,borderRadius:'50%',background:'radial-gradient(circle,rgba(249,115,22,0.12) 0%,transparent 65%)',pointerEvents:'none'}}/>
+        <div style={{maxWidth:780,margin:'0 auto',textAlign:'center',position:'relative'}}>
+          <div style={{marginBottom:22}}>
+            <Badge color={T.orange} bg="rgba(249,115,22,0.22)" style={{fontSize:13,padding:'5px 16px'}}>vsb39.ru · Калининград и область</Badge>
+          </div>
+          <h1 style={{fontFamily:T.font,fontSize:52,fontWeight:800,color:'#fff',lineHeight:1.13,marginBottom:18,letterSpacing:-1.5}}>
+            Видеонаблюдение, СКУД<br/>и охрана <span style={{color:T.orange}}>под ключ</span>
+          </h1>
+          <p style={{fontFamily:T.font,fontSize:18,color:'rgba(255,255,255,0.58)',marginBottom:44,lineHeight:1.65}}>
+            Опишите задачу — ИИ подберёт оборудование<br/>и рассчитает смету за 2 минуты
+          </p>
+          {/* Search */}
+          <div style={{background:'rgba(255,255,255,0.97)',borderRadius:T.r.xl,padding:'6px 6px 6px 22px',display:'flex',alignItems:'center',gap:10,boxShadow:T.sh.xl,maxWidth:700,margin:'0 auto 24px'}}>
+            <span style={{fontSize:18,flexShrink:0}}>🔍</span>
+            <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Камера 4MP, склад 500 м², бюджет 30к..." style={{flex:1,border:'none',outline:'none',background:'transparent',fontFamily:T.font,fontSize:16,color:T.ink,padding:'10px 0'}}/>
+            <Badge color={T.purple} bg={T.purpleLight} style={{fontSize:13,padding:'5px 12px',flexShrink:0}}>✦ ИИ</Badge>
+            <Btn color={T.blue} size="md" onClick={()=>setPage('catalog')}>Найти →</Btn>
+          </div>
+          <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
+            {['📷 Камеры','🖥 Регистраторы','🔑 СКУД','🔥 Сигнализация','🌐 Сеть'].map(c=>(
+              <button key={c} onClick={()=>setPage('catalog')} style={{fontFamily:T.font,fontSize:13,fontWeight:500,color:'rgba(255,255,255,0.7)',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.15)',borderRadius:T.r.full,padding:'6px 16px',cursor:'pointer'}}>{c}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Stats strip ── */}
+      <div style={{background:'#fff',borderBottom:`1px solid ${T.border}`}}>
+        <div style={{maxWidth:1200,margin:'0 auto',display:'grid',gridTemplateColumns:'repeat(4,1fr)',padding:'0 40px'}}>
+          {[['3 200+','Позиций в каталоге'],['15 лет','Работаем в регионе'],['48 ч','Доставка по Калининграду'],['⭐ 4.9','Средняя оценка']].map(([v,l],i)=>(
+            <div key={i} style={{padding:'22px 0',textAlign:'center',borderRight:i<3?`1px solid ${T.border}`:'none'}}>
+              <div style={{fontFamily:T.font,fontSize:26,fontWeight:800,color:T.ink}}>{v}</div>
+              <div style={{fontFamily:T.font,fontSize:13,color:T.sub,marginTop:4}}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{maxWidth:1200,margin:'0 auto',padding:'56px 40px',display:'flex',flexDirection:'column',gap:60}}>
+
+        {/* ── Categories ── */}
+        <section>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:28}}>
+            <h2 style={{fontFamily:T.font,fontSize:28,fontWeight:800,color:T.ink}}>Каталог оборудования</h2>
+            <Btn outline size="sm" onClick={()=>setPage('catalog')}>Смотреть все →</Btn>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:14}}>
+            {[
+              {ic:'📷',name:'Камеры IP / AHD',cnt:'1 200+',bg:'#EFF6FF',accent:T.blue},
+              {ic:'🖥',name:'Видеорегистраторы',cnt:'340+',bg:'#FFF7ED',accent:T.orange},
+              {ic:'🔑',name:'СКУД / Домофоны',cnt:'580+',bg:'#F0FDF4',accent:T.green},
+              {ic:'🔥',name:'ОПС / Пожарка',cnt:'420+',bg:'#FEF2F2',accent:T.red},
+              {ic:'🌐',name:'Сеть / СКС',cnt:'660+',bg:'#F5F3FF',accent:T.purple},
+            ].map(cat=>(
+              <div key={cat.name} onClick={()=>setPage('catalog')} style={{background:cat.bg,borderRadius:T.r.lg,padding:'24px 20px',cursor:'pointer',border:`1px solid ${cat.accent}18`,transition:'transform 0.15s',display:'flex',flexDirection:'column',gap:12}}>
+                <span style={{fontSize:32}}>{cat.ic}</span>
+                <div style={{fontFamily:T.font,fontSize:15,fontWeight:700,color:T.ink,lineHeight:1.3}}>{cat.name}</div>
+                <Badge color={cat.accent}>{cat.cnt} товаров</Badge>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Lead magnet / Funnel ── */}
+        <div style={{background:'linear-gradient(135deg,#07101E 0%,#0D2252 100%)',borderRadius:T.r.xl,padding:'52px 60px',display:'flex',alignItems:'center',gap:48,boxShadow:T.sh.lg}}>
+          <div style={{flex:1}}>
+            <div style={{fontFamily:T.font,fontSize:12,color:T.orange,fontWeight:700,letterSpacing:1.5,marginBottom:14}}>БЕСПЛАТНО · 2 МИНУТЫ</div>
+            <h3 style={{fontFamily:T.font,fontSize:34,fontWeight:800,color:'#fff',marginBottom:14,lineHeight:1.2}}>Получите смету<br/>прямо сейчас</h3>
+            <p style={{fontFamily:T.font,fontSize:15,color:'rgba(255,255,255,0.55)',lineHeight:1.7,marginBottom:28}}>ИИ подберёт оборудование под вашу задачу, рассчитает стоимость монтажа и пришлёт PDF на почту</p>
+            <div style={{display:'flex',gap:12}}>
+              <Btn color={T.orange} size="lg" onClick={()=>setPage('calc')}>🧮 Рассчитать смету</Btn>
+              <Btn outline size="lg" style={{color:'#fff',background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.18)'}}>Позвонить</Btn>
+            </div>
+          </div>
+          {/* AI chat widget */}
+          <div style={{width:290,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:T.r.lg,padding:22,backdropFilter:'blur(16px)',flexShrink:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
+              <div style={{width:38,height:38,borderRadius:'50%',background:`linear-gradient(135deg,${T.purple},${T.blue})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:18}}>✦</div>
+              <div>
+                <div style={{fontFamily:T.font,fontSize:14,fontWeight:700,color:'#fff'}}>ИИ-Консультант</div>
+                <div style={{fontFamily:T.font,fontSize:11,color:T.green}}>● онлайн · отвечает за 5 сек</div>
+              </div>
+            </div>
+            {[{r:false,t:'Опишите объект — подберу систему безопасности под вашу задачу'},
+              {r:true,t:'Склад 300 м², 2 входа, бюджет 50к'},
+              {r:false,t:'✓ Готово! 6 камер + NVR + монтаж = 47 200 ₽ → добавить в смету?'}
+            ].map((m,i)=>(
+              <div key={i} style={{background:m.r?'rgba(37,99,235,0.28)':'rgba(255,255,255,0.07)',borderRadius:m.r?'12px 12px 4px 12px':'12px 12px 12px 4px',padding:'9px 13px',marginBottom:8,marginLeft:m.r?40:0,marginRight:m.r?0:40,fontFamily:T.font,fontSize:13,color:'rgba(255,255,255,0.88)',lineHeight:1.5}}>{m.t}</div>
+            ))}
+            <div style={{display:'flex',gap:8,marginTop:10}}>
+              <div style={{flex:1,background:'rgba(255,255,255,0.08)',borderRadius:T.r.sm,height:38,border:'1px solid rgba(255,255,255,0.14)'}}/>
+              <button style={{width:38,height:38,borderRadius:T.r.sm,background:T.blue,border:'none',color:'#fff',cursor:'pointer',fontSize:16,fontWeight:700}}>→</button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Popular products ── */}
+        <section>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:28}}>
+            <h2 style={{fontFamily:T.font,fontSize:28,fontWeight:800,color:T.ink}}>Популярное оборудование</h2>
+            <Btn outline size="sm" onClick={()=>setPage('catalog')}>Все товары →</Btn>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:14}}>
+            {[
+              {name:'Hikvision DS-2CD2143G2-I',price:'4 990 ₽',oldPrice:'5 800 ₽',tag:'Хит продаж',tagColor:T.orange,icon:'📷'},
+              {name:'Dahua IPC-HDW2831T-AS',price:'3 490 ₽',icon:'📷'},
+              {name:'RVi NVR16/2-4K',price:'12 900 ₽',tag:'Новинка',tagColor:T.blue,icon:'🖥'},
+              {name:'BOLID VCI-140',price:'2 800 ₽',tag:'Акция',tagColor:T.red,icon:'📷'},
+              {name:'Кабель UTP cat5e',price:'18 ₽/м',icon:'🔌'},
+            ].map(p=><ProductCard key={p.name} {...p} onClick={()=>setPage('product')} onCalc={()=>onAddToCalc(p)} />)}
+          </div>
+        </section>
+
+        {/* ── VSB 3-9 section ── */}
+        <div style={{background:`linear-gradient(135deg,${T.blueLight},${T.purpleLight})`,borderRadius:T.r.xl,padding:'52px 60px',border:`1px solid rgba(124,58,237,0.1)`}}>
+          <div style={{textAlign:'center',marginBottom:44}}>
+            <Badge color={T.purple} bg={T.purpleLight} style={{fontSize:13,padding:'5px 16px',marginBottom:16}}>Принцип работы ВСБ39</Badge>
+            <h2 style={{fontFamily:T.font,fontSize:38,fontWeight:800,color:T.ink,letterSpacing:-0.5}}>Принцип <span style={{color:T.orange}}>3–9</span></h2>
+            <p style={{fontFamily:T.font,fontSize:16,color:T.sub,marginTop:10}}>3 направления защиты — 9 рубежей безопасности</p>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:20}}>
+            {[
+              {letter:'В',word:'Видим',icon:'👁',desc:'IP-видеонаблюдение, облачная аналитика, удалённый доступ 24/7',color:T.blue},
+              {letter:'С',word:'Стережём',icon:'🛡',desc:'ОПС, СКУД, контроль доступа, периметральная охрана',color:T.purple},
+              {letter:'Б',word:'Бережём',icon:'❤️',desc:'Монтаж под ключ, гарантия 3 года, сервис и поддержка',color:T.orange},
+            ].map(item=>(
+              <Card key={item.letter} pad="28px">
+                <div style={{width:54,height:54,borderRadius:T.r.md,background:item.color+'18',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,marginBottom:18}}>{item.icon}</div>
+                <div style={{display:'flex',alignItems:'baseline',gap:10,marginBottom:10}}>
+                  <span style={{fontFamily:T.font,fontSize:40,fontWeight:900,color:item.color,lineHeight:1}}>{item.letter}</span>
+                  <span style={{fontFamily:T.font,fontSize:20,fontWeight:700,color:T.ink}}>{item.word}</span>
+                </div>
+                <p style={{fontFamily:T.font,fontSize:14,color:T.sub,lineHeight:1.65}}>{item.desc}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+/* ══════════════════════════
+   CATALOG PAGE
+══════════════════════════ */
+const CatalogPage = ({setPage, onAddToCalc}) => {
+  const [cat, setCat] = useState('Все');
+  const categories = ['Все','Камеры IP','Регистраторы','СКУД','ОПС','Кабели'];
+  const products = [
+    {name:'Hikvision DS-2CD2143G2-I(2.8mm)',price:'4 990 ₽',oldPrice:'5 800 ₽',tag:'Хит',tagColor:T.orange,icon:'📷'},
+    {name:'Dahua IPC-HDW2831T-AS(2.8mm)',price:'3 490 ₽',icon:'📷'},
+    {name:'RVi-1NCT4338 (2.8mm)',price:'5 200 ₽',tag:'Новинка',tagColor:T.blue,icon:'📷'},
+    {name:'BOLID VCI-140(2.8)',price:'2 100 ₽',icon:'📷'},
+    {name:'Hikvision DS-2CD2T47G2-L',price:'6 800 ₽',icon:'📷'},
+    {name:'Dahua IPC-HFW2849S-S-IL',price:'4 200 ₽',tag:'Акция',tagColor:T.red,icon:'📷'},
+    {name:'RVi NVR16/2-4K',price:'12 900 ₽',tag:'Новинка',tagColor:T.blue,icon:'🖥'},
+    {name:'Partizan IPO-5SP Full Colour',price:'3 800 ₽',icon:'📷'},
+    {name:'BOLID NVR-304',price:'9 400 ₽',icon:'🖥'},
+  ];
+  return (
+    <div style={{maxWidth:1200,margin:'0 auto',padding:'40px 40px',fontFamily:T.font}}>
+      <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:28,fontSize:14,color:T.sub}}>
+        <span style={{cursor:'pointer',color:T.blue}} onClick={()=>setPage('home')}>Главная</span>
+        <span>→</span><span style={{color:T.ink,fontWeight:600}}>Каталог</span>
+      </div>
+      {/* AI search */}
+      <div style={{background:`linear-gradient(135deg,${T.purpleLight},${T.blueLight})`,border:`1px solid rgba(124,58,237,0.15)`,borderRadius:T.r.xl,padding:'18px 24px',display:'flex',alignItems:'center',gap:16,marginBottom:36}}>
+        <div style={{width:46,height:46,borderRadius:'50%',background:`linear-gradient(135deg,${T.purple},${T.blue})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:22,flexShrink:0}}>✦</div>
+        <div style={{flex:1}}>
+          <div style={{fontFamily:T.font,fontSize:12,fontWeight:700,color:T.purple,letterSpacing:0.5,marginBottom:4}}>ИИ-ПОИСК</div>
+          <input placeholder="Опишите задачу или вставьте артикул — найду товар и подберу аналоги..." style={{border:'none',outline:'none',background:'transparent',fontFamily:T.font,fontSize:15,color:T.ink,width:'100%'}}/>
+        </div>
+        <Btn color={T.purple}>Найти</Btn>
+      </div>
+      <div style={{display:'flex',gap:28,alignItems:'flex-start'}}>
+        {/* Filters */}
+        <div style={{width:228,flexShrink:0}}>
+          <Card pad="20px">
+            <div style={{fontFamily:T.font,fontSize:16,fontWeight:800,marginBottom:20}}>Фильтры</div>
+            {[
+              {label:'Категория',opts:['IP-камеры','AHD-камеры','Регистраторы','СКУД','ОПС','Кабели']},
+              {label:'Бренд',opts:['Hikvision','Dahua','RVi','BOLID','Partizan']},
+              {label:'Разрешение',opts:['2MP','4MP','8MP','4K']},
+            ].map(({label,opts})=>(
+              <div key={label} style={{marginBottom:20}}>
+                <div style={{fontFamily:T.font,fontSize:11,fontWeight:700,color:T.muted,textTransform:'uppercase',letterSpacing:0.8,marginBottom:10}}>{label}</div>
+                {opts.map(o=>(
+                  <label key={o} style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',fontFamily:T.font,fontSize:14,color:T.ink,marginBottom:8}}>
+                    <div style={{width:17,height:17,borderRadius:5,border:`2px solid ${T.border}`,background:'#fff',flexShrink:0}}/>
+                    {o}
+                  </label>
+                ))}
+              </div>
+            ))}
+            <div style={{marginBottom:20}}>
+              <div style={{fontFamily:T.font,fontSize:11,fontWeight:700,color:T.muted,textTransform:'uppercase',letterSpacing:0.8,marginBottom:10}}>Цена, ₽</div>
+              <div style={{display:'flex',gap:8}}>
+                <input placeholder="от" style={{flex:1,border:`1.5px solid ${T.border}`,borderRadius:T.r.sm,padding:'8px 10px',fontFamily:T.font,fontSize:14,outline:'none'}}/>
+                <input placeholder="до" style={{flex:1,border:`1.5px solid ${T.border}`,borderRadius:T.r.sm,padding:'8px 10px',fontFamily:T.font,fontSize:14,outline:'none'}}/>
+              </div>
+            </div>
+            <Btn color={T.blue} style={{width:'100%',justifyContent:'center'}}>Применить</Btn>
+          </Card>
+        </div>
+        {/* Products */}
+        <div style={{flex:1}}>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:20}}>
+            {categories.map(c=><Chip key={c} label={c} active={c===cat} onClick={()=>setCat(c)}/>)}
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+            <span style={{fontFamily:T.font,fontSize:15,color:T.sub}}>Найдено: <b style={{color:T.ink}}>248 товаров</b></span>
+            <div style={{display:'flex',gap:8}}>
+              <Btn outline size="sm">Цена ↑</Btn>
+              <Btn outline size="sm">⊞</Btn>
+            </div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
+            {products.map(p=><ProductCard key={p.name} {...p} onClick={()=>setPage('product')} onCalc={()=>onAddToCalc(p)}/>)}
+          </div>
+          {/* AI suggestions */}
+          <div style={{marginTop:24,background:T.purpleLight,border:`1px solid rgba(124,58,237,0.18)`,borderRadius:T.r.lg,padding:'20px 24px'}}>
+            <div style={{fontFamily:T.font,fontSize:14,fontWeight:700,color:T.purple,marginBottom:14}}>✦ ИИ нашёл похожие по характеристикам</div>
+            <div style={{display:'flex',gap:12}}>
+              {['Аналог дешевле на 18% — Partizan','Лучше ночная съёмка — Dahua 4K','Тот же бренд, новая модель — DS-2CD2347G2'].map(l=>(
+                <div key={l} onClick={()=>setPage('product')} style={{flex:1,background:'#fff',borderRadius:T.r.md,padding:'12px 16px',fontFamily:T.font,fontSize:13,fontWeight:500,color:T.ink,border:`1px solid rgba(124,58,237,0.1)`,cursor:'pointer'}}>
+                  {l} →
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{display:'flex',justifyContent:'center',gap:8,marginTop:28}}>
+            {[1,2,3,4,5].map(n=>(
+              <button key={n} style={{width:38,height:38,borderRadius:T.r.sm,border:`1.5px solid ${n===1?T.blue:T.border}`,background:n===1?T.blue:'#fff',color:n===1?'#fff':T.ink,fontFamily:T.font,fontSize:14,fontWeight:n===1?700:500,cursor:'pointer'}}>{n}</button>
+            ))}
+            <span style={{display:'flex',alignItems:'center',fontFamily:T.font,fontSize:14,color:T.muted}}>... 42</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ══════════════════════════
+   PRODUCT PAGE
+══════════════════════════ */
+const ProductPage = ({setPage, onAddToCalc}) => (
+  <div style={{maxWidth:1200,margin:'0 auto',padding:'40px 40px',fontFamily:T.font}}>
+    <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:32,fontSize:14,color:T.sub}}>
+      <span style={{cursor:'pointer',color:T.blue}} onClick={()=>setPage('home')}>Главная</span>
+      <span>→</span>
+      <span style={{cursor:'pointer',color:T.blue}} onClick={()=>setPage('catalog')}>Камеры IP</span>
+      <span>→</span>
+      <span style={{color:T.ink,fontWeight:600}}>Hikvision DS-2CD2143G2-I</span>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'420px 1fr',gap:48,alignItems:'flex-start'}}>
+      {/* Left: images */}
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <Card style={{overflow:'hidden',borderRadius:T.r.xl}}><ImgPH h={340} icon="📷"/></Card>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
+          {[0,1,2,3].map(i=><Card key={i} style={{overflow:'hidden'}}><ImgPH h={80} icon="📷"/></Card>)}
+        </div>
+        <div style={{fontFamily:T.font,fontSize:12,color:T.muted,textAlign:'center'}}>↑ Галерея фото · 360° · Видео-обзор</div>
+      </div>
+      {/* Right: info */}
+      <div style={{display:'flex',flexDirection:'column',gap:20}}>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <Badge color={T.green}>● В наличии</Badge>
+          <Badge color={T.blue}>4MP</Badge>
+          <Badge color={T.blue}>ИК 80м</Badge>
+          <Badge color={T.blue}>IP67</Badge>
+          <Badge color={T.blue}>PoE</Badge>
+        </div>
+        <h1 style={{fontFamily:T.font,fontSize:28,fontWeight:800,color:T.ink,lineHeight:1.2}}>Hikvision DS-2CD2143G2-I(2.8mm)</h1>
+        <div style={{display:'flex',alignItems:'baseline',gap:14}}>
+          <span style={{fontFamily:T.font,fontSize:38,fontWeight:800,color:T.ink}}>4 990 ₽</span>
+          <span style={{fontFamily:T.font,fontSize:18,color:T.muted,textDecoration:'line-through'}}>5 800 ₽</span>
+          <Badge color={T.red}>−14%</Badge>
+        </div>
+        <div style={{display:'flex',gap:12}}>
+          <Btn color={T.orange} size="lg" style={{flex:1,justifyContent:'center'}} onClick={()=>onAddToCalc&&onAddToCalc({name:'Hikvision DS-2CD2143G2-I',price:'4 990 ₽',price_num:4990})}>+ В смету</Btn>
+          <Btn color={T.blue} size="lg" style={{flex:1,justifyContent:'center'}}>🛒 В корзину</Btn>
+          <Btn outline size="lg">♡</Btn>
+        </div>
+        {/* Specs */}
+        <Card style={{overflow:'hidden'}}>
+          <div style={{background:T.ink,padding:'12px 20px'}}><span style={{fontFamily:T.font,fontSize:15,fontWeight:700,color:'#fff'}}>Характеристики</span></div>
+          {[['Разрешение','4 Мп (2688×1520)'],['ИК подсветка','80 м'],['Угол обзора','102° при 2.8 мм'],['Матрица','1/3" Progressive Scan CMOS'],['Степень защиты','IP67, IK10'],['Питание','PoE 802.3af / 12V DC'],['Температура','−40...+60°C']].map(([k,v],i)=>(
+            <div key={k} style={{display:'flex',padding:'11px 20px',background:i%2===0?'#fff':T.bg,borderTop:`1px solid ${T.border}`}}>
+              <span style={{fontFamily:T.font,fontSize:14,color:T.sub,width:190,flexShrink:0}}>{k}</span>
+              <span style={{fontFamily:T.font,fontSize:14,fontWeight:600,color:T.ink}}>{v}</span>
+            </div>
+          ))}
+        </Card>
+        {/* AI Q&A */}
+        <div style={{background:T.purpleLight,border:`1px solid rgba(124,58,237,0.2)`,borderRadius:T.r.lg,padding:20}}>
+          <div style={{fontFamily:T.font,fontSize:14,fontWeight:700,color:T.purple,marginBottom:12}}>✦ Задайте вопрос ИИ об этом товаре</div>
+          <div style={{fontFamily:T.font,fontSize:14,color:T.ink,background:'#fff',borderRadius:T.r.sm,padding:'10px 16px',marginBottom:12,lineHeight:1.5}}>«Подходит ли для парковки 50 машин?» — Да, ИК 80м покрывает въезд. Рекомендую 3–4 шт. под разными углами.</div>
+          <div style={{display:'flex',gap:8}}>
+            <input placeholder="Напишите вопрос о товаре..." style={{flex:1,border:`1.5px solid rgba(124,58,237,0.22)`,borderRadius:T.r.sm,padding:'9px 14px',fontFamily:T.font,fontSize:14,outline:'none'}}/>
+            <Btn color={T.purple} size="sm">→</Btn>
+          </div>
+        </div>
+      </div>
+    </div>
+    {/* Similar */}
+    <div style={{marginTop:52}}>
+      <h2 style={{fontFamily:T.font,fontSize:24,fontWeight:800,color:T.ink,marginBottom:20}}>Похожие по характеристикам</h2>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
+        {[{name:'Dahua IPC-HDW2831T-AS',price:'3 490 ₽',tag:'Дешевле',tagColor:T.green,icon:'📷'},{name:'RVi-1NCT4338 (2.8mm)',price:'5 200 ₽',tag:'Дороже',tagColor:T.sub,icon:'📷'},{name:'BOLID VCI-140(2.8)',price:'2 100 ₽',tag:'Бюджет',tagColor:T.green,icon:'📷'},{name:'Partizan IPO-5SP',price:'3 800 ₽',icon:'📷'}].map(p=>(
+          <ProductCard key={p.name} {...p} onClick={()=>{}} onCalc={()=>onAddToCalc&&onAddToCalc(p)}/>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+/* ══════════════════════════
+   CALCULATOR PAGE
+══════════════════════════ */
+const CalcPage = ({setPage}) => {
+  const [step, setStep] = useState(2);
+  const [items, setItems] = useState([
+    {id:1,name:'Hikvision DS-2CD2143G2-I',art:'DS-2143G2',qty:4,price:4990},
+    {id:2,name:'Dahua NVR4108HS-8P-EI',art:'NVR4108',qty:1,price:12900},
+    {id:3,name:'Кабель UTP cat5e, м',art:'UTP-5e',qty:120,price:18},
+    {id:4,name:'Монтаж камеры (чел/ч)',art:'MOUNT-CAM',qty:4,price:800},
+    {id:5,name:'Настройка и ПНР',art:'SETUP',qty:1,price:3500},
+  ]);
+  const total = items.reduce((s,i)=>s+i.qty*i.price,0);
+  const steps = ['Объект','Камеры','Регистратор','Кабель','Монтаж','Итог'];
+  const upd = (id,field,val) => setItems(items.map(i=>i.id===id?{...i,[field]:val}:i));
+  return (
+    <div style={{maxWidth:1200,margin:'0 auto',padding:'40px 40px',fontFamily:T.font}}>
+      <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:32,fontSize:14,color:T.sub}}>
+        <span style={{cursor:'pointer',color:T.blue}} onClick={()=>setPage('home')}>Главная</span>
+        <span>→</span><span style={{color:T.ink,fontWeight:600}}>Калькулятор сметы</span>
+      </div>
+      {/* Steps */}
+      <div style={{background:'#fff',borderRadius:T.r.lg,padding:4,display:'flex',gap:2,marginBottom:36,boxShadow:T.sh.sm,border:`1px solid ${T.border}`}}>
+        {steps.map((s,i)=>(
+          <button key={s} onClick={()=>setStep(i+1)} style={{flex:1,fontFamily:T.font,fontSize:13,fontWeight:step===i+1?700:500,color:step===i+1?'#fff':i<step?T.blue:T.muted,background:step===i+1?T.blue:'transparent',border:'none',borderRadius:T.r.md,padding:'10px 4px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5,transition:'all 0.15s'}}>
+            <span style={{width:20,height:20,borderRadius:'50%',background:step===i+1?'rgba(255,255,255,0.25)':i<step?T.blueLight:'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:step===i+1?'#fff':T.blue}}>
+              {i<step&&step!==i+1?'✓':i+1}
+            </span>
+            {s}
+          </button>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 288px',gap:24,alignItems:'flex-start'}}>
+        {/* Main content */}
+        <div style={{display:'flex',flexDirection:'column',gap:16}}>
+          <Card pad="28px">
+            <h2 style={{fontFamily:T.font,fontSize:22,fontWeight:800,color:T.ink,marginBottom:22}}>Шаг {step}: Камеры</h2>
+            {/* AI autoselect */}
+            <div style={{background:T.purpleLight,border:`1px solid rgba(124,58,237,0.18)`,borderRadius:T.r.lg,padding:'16px 20px',marginBottom:20}}>
+              <div style={{fontFamily:T.font,fontSize:14,fontWeight:700,color:T.purple,marginBottom:12}}>✦ ИИ-автоподбор</div>
+              <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'flex-end'}}>
+                <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                  <label style={{fontFamily:T.font,fontSize:12,color:T.sub,fontWeight:600}}>Количество камер</label>
+                  <input defaultValue="4" style={{width:90,border:`1.5px solid ${T.border}`,borderRadius:T.r.sm,padding:'8px 12px',fontFamily:T.font,fontSize:16,fontWeight:700,outline:'none',textAlign:'center'}}/>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:4,flex:1}}>
+                  <label style={{fontFamily:T.font,fontSize:12,color:T.sub,fontWeight:600}}>Тип объекта</label>
+                  <select style={{border:`1.5px solid ${T.border}`,borderRadius:T.r.sm,padding:'9px 12px',fontFamily:T.font,fontSize:14,outline:'none',background:'#fff'}}>
+                    {['Офис','Склад / производство','Частный дом','Парковка','Магазин / ТЦ'].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <Btn color={T.purple}>✦ Подобрать</Btn>
+              </div>
+            </div>
+            {/* Table */}
+            <div style={{border:`1px solid ${T.border}`,borderRadius:T.r.lg,overflow:'hidden'}}>
+              <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 70px 1fr 1fr 32px',background:T.ink,padding:'12px 18px',gap:8}}>
+                {['Наименование','Артикул','Кол.','Цена','Сумма',''].map(h=><span key={h} style={{fontFamily:T.font,fontSize:12,fontWeight:700,color:'rgba(255,255,255,0.8)',letterSpacing:0.3}}>{h}</span>)}
+              </div>
+              {items.map((item,i)=>(
+                <div key={item.id} style={{display:'grid',gridTemplateColumns:'2fr 1fr 70px 1fr 1fr 32px',padding:'11px 18px',background:i%2===0?'#fff':T.bg,borderTop:`1px solid ${T.border}`,alignItems:'center',gap:8}}>
+                  <span style={{fontFamily:T.font,fontSize:14,fontWeight:500,color:T.ink}}>{item.name}</span>
+                  <span style={{fontFamily:T.font,fontSize:12,color:T.muted}}>{item.art}</span>
+                  <input value={item.qty} onChange={e=>upd(item.id,'qty',parseInt(e.target.value)||0)} style={{width:'100%',border:`1.5px solid ${T.border}`,borderRadius:T.r.xs,padding:'4px 0',fontFamily:T.font,fontSize:15,fontWeight:700,outline:'none',textAlign:'center'}}/>
+                  <span style={{fontFamily:T.font,fontSize:14,color:T.ink}}>{item.price.toLocaleString()} ₽</span>
+                  <span style={{fontFamily:T.font,fontSize:14,fontWeight:700,color:T.orange}}>{(item.qty*item.price).toLocaleString()} ₽</span>
+                  <button onClick={()=>setItems(items.filter(it=>it.id!==item.id))} style={{background:'none',border:'none',cursor:'pointer',color:T.muted,fontSize:18,lineHeight:1}}>×</button>
+                </div>
+              ))}
+              <div style={{padding:'10px 18px',borderTop:`1px solid ${T.border}`,background:'#fff',display:'flex',gap:8}}>
+                <Btn outline size="sm">+ Добавить позицию</Btn>
+                <Btn outline size="sm">📎 Из каталога</Btn>
+              </div>
+            </div>
+          </Card>
+          <div style={{display:'flex',gap:10}}>
+            <Btn outline onClick={()=>setStep(Math.max(1,step-1))} style={{flex:1,justifyContent:'center'}}>← Назад</Btn>
+            <Btn color={T.blue} onClick={()=>setStep(Math.min(6,step+1))} style={{flex:2,justifyContent:'center'}}>Далее: Регистратор →</Btn>
+          </div>
+        </div>
+        {/* Summary sidebar */}
+        <div style={{position:'sticky',top:80}}>
+          <Card pad="24px">
+            <div style={{fontFamily:T.font,fontSize:17,fontWeight:800,color:T.ink,marginBottom:18}}>Итого смета</div>
+            {[
+              ['Оборудование',items.filter(i=>!i.name.includes('Монтаж')&&!i.name.includes('Настройка')).reduce((s,i)=>s+i.qty*i.price,0)],
+              ['Монтажные работы',items.filter(i=>i.name.includes('Монтаж')||i.name.includes('Настройка')).reduce((s,i)=>s+i.qty*i.price,0)],
+            ].map(([l,v])=>(
+              <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'9px 0',borderBottom:`1px solid ${T.border}`}}>
+                <span style={{fontFamily:T.font,fontSize:14,color:T.sub}}>{l}</span>
+                <span style={{fontFamily:T.font,fontSize:14,fontWeight:600,color:T.ink}}>{v.toLocaleString()} ₽</span>
+              </div>
+            ))}
+            <div style={{display:'flex',justifyContent:'space-between',padding:'14px 0 0'}}>
+              <span style={{fontFamily:T.font,fontSize:16,fontWeight:700,color:T.ink}}>Итого</span>
+              <span style={{fontFamily:T.font,fontSize:24,fontWeight:800,color:T.orange}}>{total.toLocaleString()} ₽</span>
+            </div>
+            <Btn color={T.orange} style={{width:'100%',justifyContent:'center',marginTop:16}}>📞 Заказать монтаж</Btn>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:8}}>
+              <Btn outline size="sm" style={{justifyContent:'center'}}>📄 PDF</Btn>
+              <Btn outline size="sm" style={{justifyContent:'center'}}>📊 Excel</Btn>
+            </div>
+            <Btn outline size="sm" style={{width:'100%',justifyContent:'center',marginTop:8}}>✉️ Отправить на email</Btn>
+            <div style={{fontFamily:T.font,fontSize:12,color:T.muted,textAlign:'center',marginTop:12,lineHeight:1.5}}>Цены обновляются автоматически при загрузке прайс-листа</div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── Footer ── */
+const Footer = () => (
+  <footer style={{background:T.ink,marginTop:80,padding:'52px 40px 32px'}}>
+    <div style={{maxWidth:1200,margin:'0 auto'}}>
+      <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr 1fr 1fr',gap:40,marginBottom:44}}>
+        <div>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:18}}>
+            <div style={{width:40,height:40,borderRadius:12,background:`linear-gradient(135deg,#1E3A5F,${T.blue})`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 14px rgba(0,0,0,0.4)'}}>
+              <span style={{fontSize:14,fontWeight:800,color:'#fff'}}>ВС<span style={{color:T.orange}}>Б</span></span>
+            </div>
+            <div>
+              <div style={{fontFamily:T.font,fontSize:18,fontWeight:800,color:'#fff'}}>ВСБ<span style={{color:T.orange}}>39</span></div>
+              <div style={{fontFamily:T.font,fontSize:10,color:'rgba(255,255,255,0.35)',letterSpacing:0.4}}>Видим. Стережём. Бережём.</div>
+            </div>
+          </div>
+          <p style={{fontFamily:T.font,fontSize:14,color:'rgba(255,255,255,0.4)',lineHeight:1.7,maxWidth:240}}>Слаботочные системы безопасности под ключ. Калининград и область.</p>
+        </div>
+        {[{title:'Каталог',items:['Камеры IP/AHD','Регистраторы','СКУД / Домофоны','ОПС / Пожарка','Кабели / СКС']},{title:'Услуги',items:['Проектирование','Монтаж под ключ','Настройка систем','Техобслуживание']},{title:'Компания',items:['О нас','Сертификаты','Партнёрам','Вакансии']},{title:'Контакты',items:['vsb39.ru','@vsb39','Калининград, 39 регион','Пн–Пт 9:00–18:00']},].map(col=>(
+          <div key={col.title}>
+            <div style={{fontFamily:T.font,fontSize:11,fontWeight:700,color:'rgba(255,255,255,0.5)',textTransform:'uppercase',letterSpacing:1,marginBottom:16}}>{col.title}</div>
+            {col.items.map(item=><div key={item} style={{fontFamily:T.font,fontSize:14,color:'rgba(255,255,255,0.38)',marginBottom:10,cursor:'pointer'}}>{item}</div>)}
+          </div>
+        ))}
+      </div>
+      <div style={{borderTop:'1px solid rgba(255,255,255,0.07)',paddingTop:20,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontFamily:T.font,fontSize:13,color:'rgba(255,255,255,0.25)'}}>© 2026 ВСБ39 — Ваша Система Безопасности</span>
+        <span style={{fontFamily:T.font,fontSize:12,color:'rgba(255,255,255,0.18)'}}>SEO · Sitemap · Robots.txt · vsb39.ru</span>
+      </div>
+    </div>
+  </footer>
+);
+
+/* ── App ── */
+const App = () => {
+  const [page, setPage] = useState('home');
+  const [calcItems, setCalcItems] = useState([]);
+  const onAddToCalc = p => setCalcItems(prev=>{
+    const ex = prev.find(i=>i.name===p.name);
+    return ex ? prev.map(i=>i.name===p.name?{...i,qty:i.qty+1}:i) : [...prev,{...p,qty:1,id:Date.now()}];
+  });
+  return (
+    <div style={{fontFamily:T.font,background:T.bg,minHeight:'100vh'}}>
+      <Nav page={page} setPage={setPage} calcCount={calcItems.length}/>
+      {page==='home'&&<HomePage setPage={setPage} onAddToCalc={onAddToCalc}/>}
+      {page==='catalog'&&<CatalogPage setPage={setPage} onAddToCalc={onAddToCalc}/>}
+      {page==='product'&&<ProductPage setPage={setPage} onAddToCalc={onAddToCalc}/>}
+      {page==='calc'&&<CalcPage setPage={setPage}/>}
+      {!['home','catalog','product','calc'].includes(page)&&(
+        <div style={{maxWidth:600,margin:'80px auto',textAlign:'center',fontFamily:T.font}}>
+          <div style={{fontSize:48,marginBottom:16}}>🔧</div>
+          <h2 style={{fontSize:24,fontWeight:700,color:T.ink,marginBottom:8}}>Раздел в разработке</h2>
+          <p style={{color:T.sub,marginBottom:24}}>Этот раздел будет добавлен в следующей версии</p>
+          <Btn color={T.blue} onClick={()=>setPage('home')}>← На главную</Btn>
+        </div>
+      )}
+      <Footer/>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

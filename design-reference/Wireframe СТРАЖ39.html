@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wireframe — СТРАЖ39</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f0ede8; font-family: 'Caveat', cursive; }
+</style>
+</head>
+<body>
+<script type="text/babel" src="wf-components.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+
+<script type="text/babel">
+/* ══════════════════════════════════════════════
+   SCENES
+══════════════════════════════════════════════ */
+
+/* ── Homepage Variant A: Dark hero + big AI search ── */
+const HomeA = () => (
+  <Col gap={10} style={{ width: 1100, fontFamily: "'Caveat', cursive" }}>
+    <NavBar dark />
+    {/* Hero */}
+    <div style={{ width: '100%', background: WF_COLORS.ink, borderRadius: 4, padding: '36px 40px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', right: 40, top: '50%', transform: 'translateY(-50%)', opacity: 0.08, fontSize: 120, lineHeight: 1 }}>🎥</div>
+      <Col gap={16} style={{ maxWidth: 680, position: 'relative' }}>
+        <span style={{ ...wfBase, fontSize: 13, color: WF_COLORS.orange, letterSpacing: 2 }}>СЛАБОТОЧНЫЕ СИСТЕМЫ БЕЗОПАСНОСТИ · vsb39.ru</span>
+        <span style={{ ...wfBase, fontSize: 38, color: '#fff', lineHeight: 1.15 }}>Видеонаблюдение, СКУД, охрана — всё под ключ в Калининграде</span>
+        <span style={{ ...wfBase, fontSize: 18, color: '#ffffff88' }}>Опишите задачу — AI подберёт оборудование и рассчитает смету</span>
+        {/* Big AI search */}
+        <div style={{ background: '#fff', borderRadius: 4, padding: '6px 6px 6px 16px', display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+          <span style={{ ...wfBase, fontSize: 17, color: WF_COLORS.gray, flex: 1 }}>Камера для склада 500 м², ночью, без кабелей...</span>
+          <Tag label="✦ AI" color={WF_COLORS.orange} />
+          <Btn label="Подобрать" primary style={{ background: WF_COLORS.orange, borderColor: WF_COLORS.orange }} />
+        </div>
+        <Row gap={8}>
+          {['Видеокамеры', 'Видеорегистраторы', 'СКУД', 'ОПС', 'Wi-Fi / Сеть'].map(c => (
+            <Chip key={c} label={c} />
+          ))}
+        </Row>
+      </Col>
+    </div>
+    {/* Stats strip */}
+    <Row gap={0} style={{ width: '100%', border: `2px solid ${WF_COLORS.ink}`, borderRadius: 4, overflow: 'hidden', background: '#fff' }}>
+      {[['3 200+', 'товаров в каталоге'], ['48 ч', 'доставка в Калининграде'], ['15 лет', 'на рынке'], ['⭐ 4.9', 'рейтинг на картах']].map(([v, l], i) => (
+        <div key={i} style={{ flex: 1, padding: '14px 0', textAlign: 'center', borderRight: i < 3 ? `2px solid ${WF_COLORS.lightGray}` : 'none' }}>
+          <div style={{ ...wfBase, fontSize: 24, fontWeight: 700 }}>{v}</div>
+          <div style={{ ...wfBase, fontSize: 13, color: WF_COLORS.gray }}>{l}</div>
+        </div>
+      ))}
+    </Row>
+    {/* Categories */}
+    <Row gap={8} style={{ width: '100%' }}>
+      {[['📷', 'Камеры IP/AHD', '1 200+'], ['🖥', 'Регистраторы', '340+'], ['🔑', 'СКУД', '580+'], ['🔥', 'ОПС', '420+'], ['🌐', 'Сеть / СКС', '660+']].map(([ic, nm, cnt]) => (
+        <Col key={nm} style={{ flex: 1, border: `2px solid ${WF_COLORS.ink}`, borderRadius: 4, background: '#fff', padding: '16px 12px', cursor: 'pointer' }} gap={4} align="center">
+          <span style={{ fontSize: 28 }}>{ic}</span>
+          <span style={{ ...wfBase, fontSize: 15, fontWeight: 700, textAlign: 'center' }}>{nm}</span>
+          <span style={{ ...wfBase, fontSize: 13, color: WF_COLORS.gray }}>{cnt} товаров</span>
+        </Col>
+      ))}
+    </Row>
+    {/* Funnel CTA banner */}
+    <div style={{ width: '100%', border: `2px dashed ${WF_COLORS.orange}`, borderRadius: 4, background: WF_COLORS.orange + '11', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 20 }}>
+      <span style={{ ...wfBase, fontSize: 24, fontWeight: 700, flex: 1 }}>🎁 Получите смету бесплатно — AI рассчитает за 2 минуты</span>
+      <Btn label="Рассчитать →" primary style={{ background: WF_COLORS.orange, borderColor: WF_COLORS.orange, color: '#fff', fontSize: 18 }} />
+      <Annot text="← воронка продаж / лид-магнит" color={WF_COLORS.orange} />
+    </div>
+    {/* Popular products */}
+    <span style={{ ...wfBase, fontSize: 20, fontWeight: 700 }}>Популярное оборудование</span>
+    <Row gap={10} style={{ width: '100%' }}>
+      {[['Hikvision DS-2CD2143', '4 990 ₽', 'Хит'], ['Dahua IPC-HDW2831T', '3 490 ₽', null], ['RVi NVR16/2', '12 900 ₽', 'Новинка'], ['BOLID C-720', '2 100 ₽', null], ['Кабель UTP cat5e', '18 ₽/м', null]].map(([n, p, t]) => (
+        <ProductCard key={n} name={n} price={p} tag={t} />
+      ))}
+    </Row>
+    <Footer />
+  </Col>
+);
+
+/* ── Homepage Variant B: Clean minimal + instant search ── */
+const HomeB = () => (
+  <Col gap={10} style={{ width: 1100, fontFamily: "'Caveat', cursive" }}>
+    <NavBar />
+    {/* Sticky search hero */}
+    <div style={{ width: '100%', border: `2px solid ${WF_COLORS.ink}`, borderRadius: 4, background: '#fff', padding: '28px 40px' }}>
+      <Col gap={14} align="center">
+        <span style={{ ...wfBase, fontSize: 13, color: WF_COLORS.gray, letterSpacing: 2 }}>СТРАЖ39 — СЛАБОТОЧНЫЕ СИСТЕМЫ</span>
+        <span style={{ ...wfBase, fontSize: 32, fontWeight: 700, textAlign: 'center' }}>Найдите нужное оборудование или опишите задачу</span>
+        <Row style={{ width: '100%', maxWidth: 780 }} gap={0}>
+          <div style={{ flex: 1, border: `2px solid ${WF_COLORS.ink}`, borderRight: 'none', borderRadius: '4px 0 0 4px', padding: '10px 16px', fontSize: 17, color: WF_COLORS.gray, fontFamily: "'Caveat', cursive" }}>
+            Hikvision 4MP или «камера для офиса»...
+          </div>
+          <div style={{ padding: '10px 14px', border: `2px solid ${WF_COLORS.ink}`, borderRight: 'none', background: WF_COLORS.hatching, fontFamily: "'Caveat', cursive", fontSize: 14, display: 'flex', alignItems: 'center', color: WF_COLORS.gray }}>по артикулу</div>
+          <div style={{ padding: '10px 14px', border: `2px solid ${WF_COLORS.ink}`, borderRight: 'none', background: WF_COLORS.hatching, fontFamily: "'Caveat', cursive", fontSize: 14, display: 'flex', alignItems: 'center', color: WF_COLORS.orange }}>✦ AI-подбор</div>
+          <Btn label="🔍" primary style={{ borderRadius: '0 4px 4px 0' }} />
+        </Row>
+        {/* Live search results preview */}
+        <div style={{ width: '100%', maxWidth: 780, border: `2px dashed ${WF_COLORS.lightGray}`, borderRadius: 4, padding: 12 }}>
+          <Annot text="↑ живые результаты поиска появляются прямо здесь по мере набора" style={{ textAlign: 'center' }} />
+          <Row gap={8} style={{ marginTop: 8 }}>
+            {['Камера IP 4MP', 'Регистратор 8 кан', 'Похожий товар'].map(l => (
+              <Box key={l} w={220} h={50} label={l} dash />
+            ))}
+          </Row>
+        </div>
+      </Col>
+    </div>
+    {/* Two-column layout */}
+    <Row gap={10} align="flex-start" style={{ width: '100%' }}>
+      {/* Left: categories */}
+      <Col gap={0} style={{ width: 220, border: `2px solid ${WF_COLORS.ink}`, borderRadius: 4, background: '#fff', flexShrink: 0, overflow: 'hidden' }}>
+        <div style={{ background: WF_COLORS.ink, padding: '10px 14px' }}>
+          <span style={{ ...wfBase, fontSize: 16, color: '#fff', fontWeight: 700 }}>Каталог</span>
+        </div>
+        {['📷 Камеры', '🖥 Регистраторы', '🔑 СКУД / домофоны', '🔥 ОПС / пожарка', '🌐 Сеть / СКС', '📻 Переговорные', '🔌 Питание / ИБП', '🔧 Монтаж'].map((c, i) => (
+          <div key={i} style={{ padding: '9px 14px', borderBottom: `1.5px solid ${WF_COLORS.hatching}`, ...wfBase, fontSize: 15, cursor: 'pointer' }}>{c}</div>
+        ))}
+      </Col>
+      {/* Right: content */}
+      <Col gap={10} style={{ flex: 1 }}>
+        {/* Promo banners 2-col */}
+        <Row gap={10} style={{ width: '100%' }}>
+          <ImgBox w="60%" h={140} label="Акция / баннер" />
+          <Col gap={10} style={{ flex: 1 }}>
+            <div style={{ flex: 1, border: `2px dashed ${WF_COLORS.orange}`, borderRadius: 4, background: WF_COLORS.orange + '11', padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ ...wfBase, fontSize: 14, textAlign: 'center', color: WF_COLORS.orange }}>🎁 Бесплатный проект при заказе от 50к</span>
+            </div>
+            <div style={{ flex: 1, border: `2px dashed ${WF_COLORS.blue}`, borderRadius: 4, background: WF_COLORS.blue + '11', padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ ...wfBase, fontSize: 14, textAlign: 'center', color: WF_COLORS.blue }}>📦 Прайс-лист — загрузить XLS/PDF</span>
+            </div>
+          </Col>
+        </Row>
+        <Row gap={8}>
+          {[['Hikvision', '4 200 ₽', 'Хит'], ['Dahua', '3 490 ₽', null], ['RVi', '5 100 ₽', 'Новинка'], ['BOLID', '1 900 ₽', null]].map(([n, p, t]) => (
+            <ProductCard key={n} name={n} price={p} tag={t} compact />
+          ))}
+        </Row>
+        {/* Sales funnel */}
+        <div style={{ border: `2px solid ${WF_COLORS.ink}`, borderRadius: 4, background: WF_COLORS.ink, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <span style={{ ...wfBase, fontSize: 20, color: '#fff', flex: 1 }}>Не знаете что выбрать? AI подберёт систему под вашу задачу и бюджет бесплатно</span>
+          <Btn label="Начать подбор →" style={{ background: WF_COLORS.orange, borderColor: WF_COLORS.orange, color: '#fff' }} />
+        </div>
+      </Col>
+    </Row>
+  </Col>
+);
+
+/* ── Homepage Variant C: Funnel-first splash ── */
+const HomeC = () => (
+  <Col gap={10} style={{ width: 1100, fontFamily: "'Caveat', cursive" }}>
+    <NavBar dark />
+    {/* Split hero: left funnel quiz, right AI chat */}
+    <Row gap={10} align="flex-start" style={{ width: '100%' }}>
+      {/* Funnel */}
+      <Col gap={12} style={{ flex: 1, border: `2px solid ${WF_COLORS.ink}`, borderRadius: 4, background: '#fff', padding: 28 }}>
+        <Tag label="Шаг 1 из 4" color={WF_COLORS.orange} />
+        <span style={{ ...wfBase, fontSize: 22, fontWeight: 700 }}>Где нужна система видеонаблюдения?</span>
+        <Col gap={8}>
+          {['🏠 Частный дом / квартира', '🏢 Офис / магазин', '🏭 Склад / производство', '🅿️ Парковка / улица', '🏗 Стройплощадка'].map(o => (
+            <div key={o} style={{ ...wfBase, border: `2px solid ${WF_COLORS.lightGray}`, borderRadius: 4, padding: '10px 14px', fontSize: 17, cursor: 'pointer' }}>{o}</div>
+          ))}
+        </Col>
+        <Row gap={8}>
+          <Btn label="← Назад" style={{ flex: 1 }} />
+          <Btn label="Далее →" primary style={{ flex: 2, background: WF_COLORS.orange, borderColor: WF_COLORS.orange, color: '#fff' }} />
+        </Row>
+        <Divider label="или" />
+        <Annot text="→ После 4 шагов: список оборудования + смета + звонок менеджера" color={WF_COLORS.gray} style={{ textAlign: 'center' }} />
+      </Col>
+      {/* AI chat */}
+      <Col gap={12} style={{ width: 320, flexShrink: 0, border: `2px solid ${WF_COLORS.orange}`, borderRadius: 4, background: '#fff', padding: 20 }}>
+        <Row gap={8}>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: WF_COLORS.orange, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18 }}>✦</div>
+          <Col gap={2}>
+            <span style={{ ...wfBase, fontSize: 16, fontWeight: 700 }}>AI-Консультант</span>
+            <span style={{ ...wfBase, fontSize: 12, color: WF_COLORS.green }}>● Онлайн · отвечает за 5 сек</span>
+          </Col>
+        </Row>
+        <Divider />
+        {/* Chat messages */}
+        {[
+          { side: 'left', text: 'Здравствуйте! Опишите вашу задачу — подберу оборудование и смету прямо сейчас' },
+          { side: 'right', text: 'Нужна камера для склада, ночью, 500 м²' },
+          { side: 'left', text: '✓ Рекомендую: Hikvision DS-2CD2T47G2 (4MP, ИК 80м). Нужно 6 шт = 29 940 ₽. Добавить в смету?' },
+        ].map((m, i) => (
+          <div key={i} style={{
+            alignSelf: m.side === 'right' ? 'flex-end' : 'flex-start',
+            maxWidth: '85%',
+            background: m.side === 'right' ? WF_COLORS.ink : WF_COLORS.hatching,
+            color: m.side === 'right' ? '#fff' : WF_COLORS.ink,
+            borderRadius: 4,
+            padding: '8px 12px',
+            ...wfBase,
+            fontSize: 14,
+          }}>{m.text}</div>
+        ))}
+        <Row gap={0} style={{ width: '100%' }}>
+          <div style={{ flex: 1, border: `2px solid ${WF_COLORS.ink}`, borderRight: 'none', borderRadius: '4px 0 0 4px', padding: '8px 10px', ...wfBase, fontSize: 15, color: WF_COLORS.gray }}>Написать...</div>
+          <Btn label="→" primary style={{ borderRadius: '0 4px 4px 0' }} />
+        </Row>
+        <Annot text="↑ Работает 24/7 · голос + чат · Telegram @vsb39" color={WF_COLORS.gray} style={{ textAlign: 'center', fontSize: 12 }} />
+      </Col>
+    </Row>
+    {/* Categories strip */}
+    <Row gap={8} style={{ width: '100%' }}>
+      {['📷 Камеры', '🖥 Регистраторы', '🔑 СКУД', '🔥 ОПС', '🌐 Сеть', '🔌 Питание'].map(c => (
+        <Chip key={c} label={c} />
+      ))}
+    </Row>
+    <Footer />
+  </Col>
+);
+
+/* ── Catalog Page ── */
+const CatalogPage = () => (
+  <Col gap={10} style={{ width: 1100, fontFamily: "'Caveat', cursive" }}>
+    <NavBar />
+    {/* Breadcrumb + heading */}
+    <Row gap={6}>
+      <span style={{ ...wfBase, fontSize: 14, color: WF_COLORS.gray }}>Главная → Камеры IP →</span>
+      <span style={{ ...wfBase, fontSize: 14 }}>Уличные 4MP</span>
+    </Row>
+    {/* AI search bar */}
+    <div style={{ width: '100%', border: `2px solid ${WF_COLORS.orange}`, borderRadius: 4, background: '#fff', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ width: 32, height: 32, borderRadius: '50%', background: WF_COLORS.orange, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 16, flexShrink: 0 }}>✦</div>
+      <div style={{ flex: 1, ...wfBase, fontSize: 16, color: WF_COLORS.gray }}>AI-поиск: напишите задачу или артикул — сравню и подберу аналоги</div>
+      <Btn label="Найти" primary style={{ background: WF_COLORS.orange, borderColor: WF_COLORS.orange }} />
+    </div>
+    {/* Main content */}
+    <Row gap={10} align="flex-start" style={{ width: '100%' }}>
+      <FilterPanel />
+      {/* Product area */}
+      <Col gap={10} style={{ flex: 1 }}>
+        {/* Toolbar */}
+        <Row gap={8} style={{ width: '100%' }}>
+          <span style={{ ...wfBase, fontSize: 16, flex: 1 }}>Найдено: 248 товаров</span>
+          <Row gap={6}>
+            <Chip label="Сортировка: цена ↑" />
+            <Chip label="⊞ Сетка" />
+            <Chip label="≡ Список" />
+          </Row>
+        </Row>
+        {/* Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, width: '100%' }}>
+          {[
+            ['Hikvision DS-2CD2143G2', '4 990 ₽', 'Хит'],
+            ['Dahua IPC-HDW2831T', '3 490 ₽', null],
+            ['RVi-1NCT4338', '5 200 ₽', 'Новинка'],
+            ['BOLID VCI-120', '2 100 ₽', null],
+            ['Hikvision DS-2CD2T47G2', '6 800 ₽', null],
+            ['Dahua IPC-HFW2849S', '4 200 ₽', 'Акция'],
+            ['RVi-1NCI4338', '4 900 ₽', null],
+            ['Partizan IPO-5SP Full Colour', '3 800 ₽', null],
+          ].map(([n, p, t]) => (
+            <ProductCard key={n} name={n} price={p} tag={t} compact />
+          ))}
+        </div>
+        {/* Similar by AI */}
+        <div style={{ border: `2px dashed ${WF_COLORS.orange}`, borderRadius: 4, padding: 12 }}>
+          <Annot text="✦ AI нашёл похожие по характеристикам:" color={WF_COLORS.orange} style={{ marginBottom: 8 }} />
+          <Row gap={8}>
+            {['Аналог 1 — дешевле на 20%', 'Аналог 2 — лучше ночная съёмка', 'Аналог 3 — тот же бренд'].map(l => (
+              <Box key={l} w={220} h={60} label={l} dash color={WF_COLORS.orange} />
+            ))}
+          </Row>
+        </div>
+        {/* Pagination */}
+        <Row gap={6} align="center">
+          {[1,2,3,4,5].map(n => (
+            <Btn key={n} label={String(n)} small style={n===1 ? { background: WF_COLORS.ink, color: '#fff' } : {}} />
+          ))}
+          <span style={{ ...wfBase, fontSize: 15, color: WF_COLORS.gray }}>... 42</span>
+        </Row>
+      </Col>
+    </Row>
+  </Col>
+);
+
+/* ── Product Detail Page ── */
+const ProductPage = () => (
+  <Col gap={12} style={{ width: 1100, fontFamily: "'Caveat', cursive" }}>
+    <NavBar />
+    <Row gap={6}>
+      <span style={{ ...wfBase, fontSize: 14, color: WF_COLORS.gray }}>Главная → Камеры IP → Уличные →</span>
+      <span style={{ ...wfBase, fontSize: 14 }}>Hikvision DS-2CD2143G2-I</span>
+    </Row>
+    <Row gap={20} align="flex-start" style={{ width: '100%' }}>
+      {/* Left: images */}
+      <Col gap={8} style={{ width: 340, flexShrink: 0 }}>
+        <ImgBox w={340} h={280} label="Главное фото" />
+        <Row gap={6}>
+          {[80, 80, 80, 80].map((_, i) => <ImgBox key={i} w={80} h={60} />)}
+        </Row>
+        <Annot text="↑ галерея фото / 360° / видео" color={WF_COLORS.gray} />
+      </Col>
+      {/* Right: info */}
+      <Col gap={12} style={{ flex: 1 }}>
+        <Row gap={8}>
+          <Tag label="В наличии" color={WF_COLORS.green} />
+          <Tag label="4MP" color={WF_COLORS.blue} />
+          <Tag label="ИК 80м" color={WF_COLORS.blue} />
+        </Row>
+        <span style={{ ...wfBase, fontSize: 26, fontWeight: 700 }}>Hikvision DS-2CD2143G2-I(2.8mm)</span>
+        <span style={{ ...wfBase, fontSize: 34, fontWeight: 700 }}>4 990 ₽ <span style={{ fontSize: 16, color: WF_COLORS.gray, textDecoration: 'line-through' }}>5 800 ₽</span></span>
+        <Row gap={8}>
+          <Btn label="+ В смету" primary style={{ flex: 1, background: WF_COLORS.orange, borderColor: WF_COLORS.orange, color: '#fff' }} />
+          <Btn label="🛒 В корзину" primary style={{ flex: 1 }} />
+          <Btn label="♡" small />
+        </Row>
+        {/* Specs table */}
+        <div style={{ border: `2px solid ${WF_COLORS.ink}`, borderRadius: 4, overflow: 'hidden', width: '100%' }}>
+          <div style={{ background: WF_COLORS.ink, padding: '8px 14px' }}>
+            <span style={{ ...wfBase, fontSize: 16, color: '#fff', fontWeight: 700 }}>Характеристики</span>
+          </div>
+          {[
+            ['Разрешение', '4 Мп (2688×1520)'],
+            ['ИК подсветка', '80 м'],
+            ['Угол обзора', '102° (2.8mm)'],
+            ['Тип матрицы', '1/3" Progressive Scan CMOS'],
+            ['Степень защиты', 'IP67, IK10'],
+            ['Питание', 'PoE 802.3af / 12V DC'],
+          ].map(([k, v], i) => (
+            <div key={k} style={{ display: 'flex', padding: '7px 14px', background: i % 2 === 0 ? '#fff' : WF_COLORS.hatching, borderTop: `1.5px solid ${WF_COLORS.lightGray}` }}>
+              <span style={{ ...wfBase, fontSize: 15, color: WF_COLORS.gray, width: 160 }}>{k}</span>
+              <span style={{ ...wfBase, fontSize: 15 }}>{v}</span>
+            </div>
+          ))}
+        </div>
+        {/* AI answer */}
+        <div style={{ border: `2px dashed ${WF_COLORS.orange}`, borderRadius: 4, padding: 12, background: WF_COLORS.orange + '11' }}>
+          <Annot text="✦ AI отвечает на вопросы о товаре" color={WF_COLORS.orange} />
+          <div style={{ ...wfBase, fontSize: 14, marginTop: 6 }}>«Подходит ли для парковки?» — Да, ИК 80м покрывает въезд, нужен 1 шт...</div>
+        </div>
+      </Col>
+    </Row>
+    {/* Similar products */}
+    <span style={{ ...wfBase, fontSize: 20, fontWeight: 700 }}>Похожие по характеристикам</span>
+    <Row gap={10}>
+      {[['Dahua IPC-HDW2831T', '3 490 ₽', null], ['RVi-1NCT4338', '5 200 ₽', 'Дороже'], ['BOLID VCI-120', '2 100 ₽', 'Дешевле']].map(([n, p, t]) => (
+        <ProductCard key={n} name={n} price={p} tag={t} />
+      ))}
+    </Row>
+  </Col>
+);
+
+/* ── Estimate Calculator ── */
+const CalculatorPage = () => (
+  <Col gap={10} style={{ width: 1100, fontFamily: "'Caveat', cursive" }}>
+    <NavBar />
+    <Row gap={10} align="flex-start" style={{ width: '100%' }}>
+      {/* Steps sidebar */}
+      <Col gap={0} style={{ width: 220, border: `2px solid ${WF_COLORS.ink}`, borderRadius: 4, background: '#fff', overflow: 'hidden', flexShrink: 0 }}>
+        {[
+          ['1', 'Тип объекта', true],
+          ['2', 'Камеры', false],
+          ['3', 'Регистратор', false],
+          ['4', 'Кабель/питание', false],
+          ['5', 'Монтаж', false],
+          ['6', 'Итог / смета', false],
+        ].map(([n, l, active]) => (
+          <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: active ? WF_COLORS.ink : '#fff', borderBottom: `1.5px solid ${WF_COLORS.hatching}`, cursor: 'pointer' }}>
+            <div style={{ width: 26, height: 26, borderRadius: '50%', background: active ? WF_COLORS.orange : WF_COLORS.lightGray, display: 'flex', alignItems: 'center', justifyContent: 'center', ...wfBase, fontSize: 15, color: active ? '#fff' : WF_COLORS.gray, flexShrink: 0 }}>{n}</div>
+            <span style={{ ...wfBase, fontSize: 16, color: active ? '#fff' : WF_COLORS.ink }}>{l}</span>
+          </div>
+        ))}
+      </Col>
+      {/* Main area */}
+      <Col gap={10} style={{ flex: 1 }}>
+        {/* Step content */}
+        <div style={{ border: `2px solid ${WF_COLORS.ink}`, borderRadius: 4, background: '#fff', padding: 24 }}>
+          <span style={{ ...wfBase, fontSize: 22, fontWeight: 700, display: 'block', marginBottom: 16 }}>Шаг 2: Выберите камеры</span>
+          {/* AI suggest */}
+          <div style={{ border: `2px dashed ${WF_COLORS.orange}`, borderRadius: 4, padding: 12, background: WF_COLORS.orange + '11', marginBottom: 16 }}>
+            <Annot text="✦ AI-автоподбор: укажите количество камер и тип объекта" color={WF_COLORS.orange} />
+            <Row gap={8} style={{ marginTop: 8 }}>
+              <Box w={120} h={40} label="Кол-во камер" />
+              <Box w={160} h={40} label="Тип объекта" />
+              <Btn label="✦ Подобрать" style={{ background: WF_COLORS.orange, borderColor: WF_COLORS.orange, color: '#fff' }} />
+            </Row>
+          </div>
+          {/* Table */}
+          <div style={{ border: `2px solid ${WF_COLORS.ink}`, borderRadius: 4, overflow: 'hidden', width: '100%' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 60px', background: WF_COLORS.ink, padding: '8px 12px', gap: 8 }}>
+              {['Оборудование', 'Арт.', 'Кол-во', 'Цена', ''].map(h => (
+                <span key={h} style={{ ...wfBase, fontSize: 15, color: '#fff', fontWeight: 700 }}>{h}</span>
+              ))}
+            </div>
+            {[
+              ['Hikvision DS-2CD2143G2-I', 'DS-2143G2', 4, '4 990 ₽', '19 960 ₽'],
+              ['Dahua NVR4108HS-8P-EI', 'NVR4108HS', 1, '12 900 ₽', '12 900 ₽'],
+              ['Кабель UTP cat5e, м', 'UTP-5e', 120, '18 ₽', '2 160 ₽'],
+              ['Монтаж камеры', 'MOUNT-CAM', 4, '800 ₽', '3 200 ₽'],
+            ].map(([n, a, q, p, t], i) => (
+              <div key={n} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 60px', padding: '8px 12px', gap: 8, background: i % 2 === 0 ? '#fff' : WF_COLORS.hatching, borderTop: `1.5px solid ${WF_COLORS.lightGray}`, alignItems: 'center' }}>
+                <span style={{ ...wfBase, fontSize: 15 }}>{n}</span>
+                <span style={{ ...wfBase, fontSize: 13, color: WF_COLORS.gray }}>{a}</span>
+                <Box w={60} h={30} label={String(q)} />
+                <span style={{ ...wfBase, fontSize: 15 }}>{p}</span>
+                <span style={{ ...wfBase, fontSize: 15, fontWeight: 700, color: WF_COLORS.orange }}>{t}</span>
+              </div>
+            ))}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px', borderTop: `2px solid ${WF_COLORS.ink}`, background: '#fff', gap: 24 }}>
+              <span style={{ ...wfBase, fontSize: 18 }}>Оборудование: <b>38 220 ₽</b></span>
+              <span style={{ ...wfBase, fontSize: 22, fontWeight: 700 }}>ИТОГО: 38 220 ₽</span>
+            </div>
+          </div>
+          <Annot text="+ Расчёт кабеля по метражу объекта → шаг 4" color={WF_COLORS.blue} style={{ marginTop: 8 }} />
+        </div>
+        {/* Actions */}
+        <Row gap={8} style={{ width: '100%' }}>
+          <Btn label="← Назад" style={{ flex: 1 }} />
+          <Btn label="Далее: Кабель →" primary style={{ flex: 2 }} />
+          <Btn label="📄 Скачать PDF" style={{ flex: 1 }} />
+          <Btn label="📊 Excel" style={{ flex: 1 }} />
+          <Btn label="✉️ На email" style={{ flex: 1 }} />
+        </Row>
+      </Col>
+      {/* Live summary sidebar */}
+      <Col gap={8} style={{ width: 220, border: `2px solid ${WF_COLORS.ink}`, borderRadius: 4, background: '#fff', padding: 16, flexShrink: 0 }}>
+        <span style={{ ...wfBase, fontSize: 18, fontWeight: 700 }}>Итого смета</span>
+        <Divider />
+        {[['Оборудование', '35 060 ₽'], ['Монтаж', '3 200 ₽'], ['Кабель', '2 160 ₽'], ['Настройка', '5 000 ₽']].map(([l, v]) => (
+          <Row key={l} style={{ width: '100%' }} gap={0}>
+            <span style={{ ...wfBase, fontSize: 15, flex: 1, color: WF_COLORS.gray }}>{l}</span>
+            <span style={{ ...wfBase, fontSize: 15 }}>{v}</span>
+          </Row>
+        ))}
+        <Divider />
+        <Row style={{ width: '100%' }}>
+          <span style={{ ...wfBase, fontSize: 18, fontWeight: 700, flex: 1 }}>Итого</span>
+          <span style={{ ...wfBase, fontSize: 20, fontWeight: 700, color: WF_COLORS.orange }}>45 420 ₽</span>
+        </Row>
+        <Btn label="📞 Заказать" primary style={{ width: '100%', background: WF_COLORS.orange, borderColor: WF_COLORS.orange, color: '#fff' }} />
+        <Annot text="← живой пересчёт при изменении кол-ва" color={WF_COLORS.blue} style={{ fontSize: 12, textAlign: 'center' }} />
+      </Col>
+    </Row>
+  </Col>
+);
+
+/* ── Admin Panel ── */
+const AdminPage = () => (
+  <Col gap={10} style={{ width: 1100, fontFamily: "'Caveat', cursive" }}>
+    {/* Admin nav */}
+    <div style={{ background: '#1a1a2e', borderRadius: 4, padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+      <span style={{ ...wfBase, fontSize: 18, color: '#fff', fontWeight: 700 }}>СТРАЖ<span style={{ color: WF_COLORS.orange }}>39</span> <span style={{ fontSize: 14, color: '#ffffff66' }}>ADMIN</span></span>
+      <div style={{ flex: 1 }} />
+      {['Каталог', 'Прайсы', 'Заказы', 'Сметы', 'SEO', 'AI-настройка'].map(l => (
+        <span key={l} style={{ ...wfBase, fontSize: 15, color: '#ffffffaa', cursor: 'pointer' }}>{l}</span>
+      ))}
+      <div style={{ ...wfBase, fontSize: 14, color: WF_COLORS.orange, cursor: 'pointer' }}>👤 Менеджер</div>
+    </div>
+    <Row gap={10} align="flex-start" style={{ width: '100%' }}>
+      {/* Sidebar */}
+      <Col gap={0} style={{ width: 200, border: `2px solid ${WF_COLORS.ink}`, borderRadius: 4, background: '#fff', overflow: 'hidden', flexShrink: 0 }}>
+        {['📁 Загрузить прайс', '🗂 Каталог товаров', '🔄 Обновить цены', '🤖 AI-парсинг', '📦 Заказы', '🧮 Сметы', '📊 SEO / статьи', '⚙️ Настройки'].map((i, idx) => (
+          <div key={idx} style={{ padding: '10px 14px', borderBottom: `1.5px solid ${WF_COLORS.hatching}`, ...wfBase, fontSize: 15, cursor: 'pointer', background: idx === 0 ? WF_COLORS.hatching : '#fff' }}>{i}</div>
+        ))}
+      </Col>
+      {/* Main admin content */}
+      <Col gap={10} style={{ flex: 1 }}>
+        {/* Price upload */}
+        <div style={{ border: `2px solid ${WF_COLORS.ink}`, borderRadius: 4, background: '#fff', padding: 20 }}>
+          <span style={{ ...wfBase, fontSize: 20, fontWeight: 700, display: 'block', marginBottom: 12 }}>📁 Загрузка прайс-листа</span>
+          {/* Drop zone */}
+          <div style={{ border: `3px dashed ${WF_COLORS.blue}`, borderRadius: 4, background: WF_COLORS.blue + '0a', padding: '32px 20px', textAlign: 'center', marginBottom: 12 }}>
+            <div style={{ ...wfBase, fontSize: 40, marginBottom: 8 }}>📄</div>
+            <div style={{ ...wfBase, fontSize: 18, fontWeight: 700, color: WF_COLORS.blue }}>Перетащите файл или нажмите</div>
+            <div style={{ ...wfBase, fontSize: 14, color: WF_COLORS.gray }}>XLS, XLSX, CSV, PDF, DOCX, JSON, XML — до 50 МБ</div>
+          </div>
+          {/* AI parse options */}
+          <Row gap={10} align="flex-start">
+            <Col gap={6} style={{ flex: 1 }}>
+              <span style={{ ...wfBase, fontSize: 16, fontWeight: 700 }}>AI-парсинг:</span>
+              {['Автоматически определить колонки', 'Перевести артикулы / названия', 'Обновить цены (не трогать хар-ки)', 'Обновить всё (цены + хар-ки)'].map(o => (
+                <Row key={o} gap={6}>
+                  <div style={{ width: 14, height: 14, border: `2px solid ${WF_COLORS.ink}`, borderRadius: 2, flexShrink: 0, background: o.includes('Автоматически') ? WF_COLORS.ink : '#fff' }} />
+                  <span style={{ ...wfBase, fontSize: 14 }}>{o}</span>
+                </Row>
+              ))}
+            </Col>
+            <Col gap={6} style={{ flex: 1 }}>
+              <span style={{ ...wfBase, fontSize: 16, fontWeight: 700 }}>Предпросмотр:</span>
+              <div style={{ border: `2px solid ${WF_COLORS.lightGray}`, borderRadius: 4, padding: 8, background: WF_COLORS.hatching }}>
+                <div style={{ ...wfBase, fontSize: 13, color: WF_COLORS.gray }}>Строк: 1 248 · Товаров: 1 130</div>
+                <div style={{ ...wfBase, fontSize: 13, color: WF_COLORS.green }}>✓ Колонки определены: Артикул, Наименование, Цена</div>
+                <div style={{ ...wfBase, fontSize: 13, color: WF_COLORS.orange }}>⚠ 18 товаров без цены — пропустить?</div>
+              </div>
+            </Col>
+          </Row>
+          <Row gap={8} style={{ marginTop: 12 }}>
+            <Btn label="✦ Запустить AI-парсинг" primary style={{ background: WF_COLORS.orange, borderColor: WF_COLORS.orange, color: '#fff', flex: 2 }} />
+            <Btn label="Отмена" style={{ flex: 1 }} />
+          </Row>
+        </div>
+        {/* Stats + recent */}
+        <Row gap={10} style={{ width: '100%' }}>
+          {[['🗂', '3 248', 'товаров в каталоге'], ['📦', '47', 'новых заказов'], ['🧮', '12', 'смет сегодня'], ['📞', '8', 'лидов (AI-чат)']].map(([ic, v, l]) => (
+            <Col key={l} style={{ flex: 1, border: `2px solid ${WF_COLORS.ink}`, borderRadius: 4, background: '#fff', padding: '14px 12px' }} gap={4} align="center">
+              <span style={{ fontSize: 24 }}>{ic}</span>
+              <span style={{ ...wfBase, fontSize: 28, fontWeight: 700 }}>{v}</span>
+              <span style={{ ...wfBase, fontSize: 13, color: WF_COLORS.gray, textAlign: 'center' }}>{l}</span>
+            </Col>
+          ))}
+        </Row>
+      </Col>
+    </Row>
+  </Col>
+);
+
+/* ══════════════════════════════════════════════
+   MAIN APP
+══════════════════════════════════════════════ */
+const App = () => (
+  <DCCanvas title="СТРАЖ39 — Wireframes">
+    <DCSection id="homepage" title="🏠 Главная страница — 3 варианта">
+      <DCArtboard id="home-a" label="Вариант A: Тёмный герой + AI-поиск" width={1100} height={1080}>
+        <HomeA />
+      </DCArtboard>
+      <DCArtboard id="home-b" label="Вариант B: Чистый минимализм + живой поиск" width={1100} height={900}>
+        <HomeB />
+      </DCArtboard>
+      <DCArtboard id="home-c" label="Вариант C: Воронка-квиз + AI-чат (Lead first)" width={1100} height={820}>
+        <HomeC />
+      </DCArtboard>
+    </DCSection>
+    <DCSection id="catalog" title="📋 Каталог + поиск по фильтрам">
+      <DCArtboard id="catalog-main" label="Страница каталога с AI-поиском" width={1100} height={980}>
+        <CatalogPage />
+      </DCArtboard>
+      <DCArtboard id="product-page" label="Карточка товара + похожие" width={1100} height={980}>
+        <ProductPage />
+      </DCArtboard>
+    </DCSection>
+    <DCSection id="calc" title="🧮 Калькулятор сметы">
+      <DCArtboard id="calc-main" label="Пошаговый конструктор сметы" width={1100} height={820}>
+        <CalculatorPage />
+      </DCArtboard>
+    </DCSection>
+    <DCSection id="admin" title="⚙️ Панель администратора">
+      <DCArtboard id="admin-main" label="Загрузка прайсов + AI-парсинг + дашборд" width={1100} height={760}>
+        <AdminPage />
+      </DCArtboard>
+    </DCSection>
+  </DCCanvas>
+);
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+<div id="root"></div>
+</body>
+</html>
