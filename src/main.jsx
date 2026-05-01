@@ -284,6 +284,46 @@ function routeFromLocation() {
   return "home";
 }
 
+function readHeroRequest() {
+  try {
+    return localStorage.getItem("vsb39_hero_request") || "";
+  } catch {
+    return "";
+  }
+}
+
+function saveHeroRequest(value) {
+  try {
+    localStorage.setItem("vsb39_hero_request", value);
+  } catch {
+    // localStorage can be unavailable in private or restricted contexts.
+  }
+}
+
+function parseEstimateRequest(text) {
+  const normalized = normalize(text);
+  const result = {};
+  if (normalized.includes("офис")) result.objectType = "Офис";
+  else if (normalized.includes("магазин") || normalized.includes("касс")) result.objectType = "Магазин";
+  else if (normalized.includes("дом") || normalized.includes("коттедж")) result.objectType = "Дом";
+  else if (normalized.includes("производ")) result.objectType = "Производство";
+  else if (normalized.includes("склад")) result.objectType = "Склад";
+
+  const areaMatch = normalized.match(/(\d+(?:[.,]\d+)?)\s*(м2|м²|кв|квадрат|м\s*кв)/);
+  if (areaMatch) result.area = areaMatch[1].replace(",", ".");
+
+  const workMatch = normalized.match(/(\d+)\s*(рабоч|мест)/);
+  if (workMatch) result.workplacesAttention = workMatch[1];
+
+  const pointMatch = normalized.match(/(\d+)\s*(точ|касс|ворот|вход)/);
+  if (pointMatch) result.pointsAttention = pointMatch[1];
+
+  if (normalized.includes("сложн")) result.complexity = "hard";
+  else if (normalized.includes("прост")) result.complexity = "simple";
+  else if (normalized.includes("стандарт")) result.complexity = "standard";
+  return result;
+}
+
 function navigateTo(route) {
   const path = route === "home" ? "/" : `/${route}`;
   window.history.pushState({}, "", path);
@@ -1255,7 +1295,36 @@ function Header({ estimateCount, route }) {
   );
 }
 
-function Hero({ query, setQuery }) {
+function Hero() {
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState([
+    {
+      role: "assistant",
+      text: "Опишите объект: тип, площадь, сколько входов и что важно видеть. Я подскажу стартовую конфигурацию и отправлю в смету."
+    }
+  ]);
+  const prompts = [
+    "Склад 1200 м², нужен общий обзор",
+    "Офис, 8 рабочих мест под контролем",
+    "Магазин, касса и вход",
+    "Дом, камеры по периметру"
+  ];
+
+  function submitChat(text = chatInput) {
+    const message = text.trim();
+    if (!message) return;
+    saveHeroRequest(message);
+    setChatMessages((current) => [
+      ...current,
+      { role: "user", text: message },
+      {
+        role: "assistant",
+        text: "Принял. Для точного расчёта откройте калькулятор: там можно выбрать тип объекта, сложность, точки внимания и сразу получить смету."
+      }
+    ]);
+    setChatInput("");
+  }
+
   return (
     <section className="hero" id="top">
       <div className="hero-grid">
@@ -1270,15 +1339,41 @@ function Hero({ query, setQuery }) {
             <Button tone="blue" onClick={() => navigateTo("estimate")}><Calculator size={18} />Рассчитать смету</Button>
             <Button variant="outline" onClick={() => navigateTo("catalog")}><Search size={18} />Подобрать оборудование</Button>
           </div>
-          <div className="hero-search">
-            <Search size={21} />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Камера 4MP, склад 500 м², бюджет 30к..."
-            />
-            <span><Bot size={15} />ИИ</span>
-            <button onClick={() => navigateTo("catalog")}>Найти</button>
+          <div className="hero-chat" aria-label="AI-чат подбора системы безопасности">
+            <div className="hero-chat-head">
+              <span><Bot size={17} />AI-подбор</span>
+              <small>черновик диалога для будущего VseGPT</small>
+            </div>
+            <div className="hero-chat-body">
+              {chatMessages.slice(-4).map((message, index) => (
+                <div className={`chat-bubble ${message.role}`} key={`${message.role}-${index}`}>
+                  {message.text}
+                </div>
+              ))}
+            </div>
+            <div className="hero-chat-prompts">
+              {prompts.map((prompt) => (
+                <button key={prompt} onClick={() => submitChat(prompt)}>{prompt}</button>
+              ))}
+            </div>
+            <div className="hero-chat-input">
+              <input
+                value={chatInput}
+                onChange={(event) => setChatInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") submitChat();
+                }}
+                placeholder="Например: производство 2500 м², 12 рабочих мест, 3 ворот..."
+              />
+              <button onClick={() => submitChat()}><ArrowRight size={18} /></button>
+            </div>
+            <button className="hero-chat-estimate" onClick={() => {
+              const latestRequest = chatInput.trim() || [...chatMessages].reverse().find((message) => message.role === "user")?.text || "";
+              if (latestRequest) saveHeroRequest(latestRequest);
+              navigateTo("estimate");
+            }}>
+              Перейти к расчёту сметы
+            </button>
           </div>
           <div className="hero-proof">
             {["39-й регион", "гарантия и сервис", "смета из прайсов", "выезд и аудит"].map((label) => (
@@ -1651,10 +1746,10 @@ function AdminPage({ onImport, onAddProduct, productsCount, estimateCount, onRes
   );
 }
 
-function HomePage({ query, setQuery, products, setFilters }) {
+function HomePage({ products, setFilters }) {
   return (
     <>
-      <Hero query={query} setQuery={setQuery} />
+      <Hero />
       <main>
         <section className="services-section">
           <div className="section-head">
@@ -1969,8 +2064,21 @@ function Estimate({ products = [], items, setItems }) {
   const [complexity, setComplexity] = useState("standard");
   const [workplacesAttention, setWorkplacesAttention] = useState(0);
   const [pointsAttention, setPointsAttention] = useState(0);
+  const [sourceRequest, setSourceRequest] = useState(() => readHeroRequest());
   const [autoQty, setAutoQty] = useState({});
   const [pdfStatus, setPdfStatus] = useState("");
+
+  useEffect(() => {
+    const request = readHeroRequest();
+    if (!request) return;
+    setSourceRequest(request);
+    const parsed = parseEstimateRequest(request);
+    if (parsed.objectType) setObjectType(parsed.objectType);
+    if (parsed.area) setArea(parsed.area);
+    if (parsed.complexity) setComplexity(parsed.complexity);
+    if (parsed.workplacesAttention) setWorkplacesAttention(parsed.workplacesAttention);
+    if (parsed.pointsAttention) setPointsAttention(parsed.pointsAttention);
+  }, []);
 
   const showWorkplaces = ["Офис", "Производство"].includes(objectType);
   const showPoints = ["Магазин", "Производство"].includes(objectType);
@@ -2070,6 +2178,16 @@ function Estimate({ products = [], items, setItems }) {
       <div className="estimate-copy">
         <h2>Калькулятор сметы</h2>
         <p>Расчёт собирает минимальный комплект IP-видеонаблюдения из базы: камеры, NVR, PoE, кабель и монтажные работы.</p>
+        {sourceRequest && (
+          <div className="request-context">
+            <span>Запрос из AI-чата</span>
+            <strong>{sourceRequest}</strong>
+            <button onClick={() => {
+              saveHeroRequest("");
+              setSourceRequest("");
+            }}>Сбросить</button>
+          </div>
+        )}
         <div className="estimate-form">
           <label>
             Тип объекта
@@ -2367,7 +2485,7 @@ function App() {
     <>
       <SeoManager route={route} />
       <Header route={route} estimateCount={estimateItems.reduce((sum, item) => sum + item.qty, 0)} />
-      {route === "home" && <HomePage query={query} setQuery={setQuery} products={products} setFilters={setFilters} />}
+      {route === "home" && <HomePage products={products} setFilters={setFilters} />}
       {route === "catalog" && (
         <main>
           <Catalog
