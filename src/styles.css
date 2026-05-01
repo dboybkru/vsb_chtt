@@ -1455,6 +1455,7 @@ textarea {
 .estimate-card-top {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 16px;
   padding: 18px;
   border-radius: 18px;
@@ -1473,10 +1474,64 @@ textarea {
   font-size: 13px;
 }
 
+.estimate-top-total {
+  min-width: 170px;
+  margin-left: auto;
+  text-align: right;
+}
+
+.estimate-top-total b {
+  display: block;
+  margin-top: 4px;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1.05;
+}
+
+.estimate-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.estimate-metrics div {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.estimate-metrics span,
+.estimate-metrics b {
+  display: block;
+}
+
+.estimate-metrics span {
+  color: var(--sub);
+  font-size: 12px;
+}
+
+.estimate-metrics b {
+  margin-top: 4px;
+  color: var(--ink);
+  font-size: 13px;
+}
+
 .estimate-items {
   display: grid;
   gap: 10px;
   margin: 18px 0;
+}
+
+.estimate-group-title {
+  margin-top: 4px;
+  color: var(--sub);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .empty-estimate {
@@ -1499,6 +1554,16 @@ textarea {
   padding: 12px;
 }
 
+.estimate-line {
+  align-items: flex-start;
+}
+
+.line-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .estimate-item strong,
 .estimate-item span {
   display: block;
@@ -1513,6 +1578,49 @@ textarea {
   margin-top: 4px;
   color: var(--sub);
   font-size: 12px;
+}
+
+.line-price {
+  min-width: 150px;
+  text-align: right;
+}
+
+.line-price b {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .estimate-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .estimate-card-top {
+    flex-wrap: wrap;
+  }
+
+  .estimate-top-total {
+    width: 100%;
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .estimate-line {
+    display: grid;
+  }
+
+  .line-controls {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .line-price {
+    min-width: 0;
+    text-align: left;
+  }
 }
 
 .qty {
@@ -1537,6 +1645,23 @@ textarea {
   text-align: center;
   color: var(--ink);
   font-weight: 800;
+}
+
+.qty input {
+  width: 52px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+  font-weight: 800;
+  text-align: center;
+}
+
+.pdf-status {
+  margin: 10px 0 0;
+  color: var(--sub);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .estimate-summary {

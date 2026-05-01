@@ -257,6 +257,15 @@ function formatMoney(value, unit = "шт") {
   return `${new Intl.NumberFormat("ru-RU").format(Math.round(value))} ₽${unit && unit !== "шт" ? `/${unit}` : ""}`;
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function normalize(value) {
   return String(value || "")
     .toLowerCase()
@@ -447,6 +456,276 @@ function similarProducts(product, list) {
     })
     .sort((a, b) => b.similarScore - a.similarScore)
     .slice(0, 4);
+}
+
+const estimateRates = {
+  cameraInstall: 2500,
+  nvrInstall: 3500,
+  switchInstall: 1700,
+  remoteAccess: 2600,
+  cableInstall: 120,
+  cableMaterial: 35,
+  cablePerCamera: 15,
+  cameraStepMeters: 40
+};
+
+function productText(product) {
+  return normalize([
+    product?.name,
+    product?.brand,
+    product?.category,
+    product?.resolution,
+    product?.analytics,
+    product?.description,
+    product?.codec,
+    ...(product?.tags || [])
+  ].join(" "));
+}
+
+function productChannels(product) {
+  const direct = Number(product?.channels || 0);
+  if (direct > 0) return direct;
+  const match = productText(product).match(/(\d+)\s*(канал|ch|channel)/);
+  return match ? Number(match[1]) : 0;
+}
+
+function isIpCamera(product) {
+  const text = productText(product);
+  return product?.category === "Камеры" && (
+    product?.tags?.includes("ip") ||
+    text.includes(" ip ") ||
+    text.includes("ip-") ||
+    text.includes("poe") ||
+    text.includes("сетевая")
+  );
+}
+
+function hasResolution(product, resolution) {
+  const wanted = normalize(resolution);
+  const text = productText(product);
+  return normalize(product?.resolution).includes(wanted) || text.includes(wanted);
+}
+
+function cheapestProduct(products, predicate) {
+  return (Array.isArray(products) ? products : [])
+    .filter((product) => Number(product.price) > 0 && predicate(product))
+    .sort((a, b) => a.price - b.price)[0] || null;
+}
+
+function fallbackProduct(id, name, price, unit = "шт", category = "Прочее", description = "") {
+  return { id, name, price, unit, category, description, source: "расчёт ВСБ39" };
+}
+
+function pickCamera(products, complexity) {
+  const targetResolution = complexity === "simple" ? "2MP" : "4MP";
+  return cheapestProduct(products, (product) => isIpCamera(product) && hasResolution(product, targetResolution))
+    || cheapestProduct(products, isIpCamera)
+    || fallbackProduct("estimate-camera-ip", `IP-камера ${targetResolution}`, 0, "шт", "Камеры", "Не найдена в базе: добавьте подходящую IP-камеру в прайс.");
+}
+
+function pickNvr(products, cameraCount) {
+  const byName = cameraCount <= 10
+    ? cheapestProduct(products, (product) => productText(product).includes("nvr-5101"))
+    : cameraCount <= 16
+      ? cheapestProduct(products, (product) => productText(product).includes("nvr-5161"))
+      : null;
+  if (byName) return byName;
+  return cheapestProduct(products, (product) => {
+    const text = productText(product);
+    return product.category === "Регистраторы" && (text.includes("nvr") || text.includes("ip-видеорегистратор")) && productChannels(product) >= cameraCount;
+  }) || fallbackProduct("estimate-nvr", `NVR на ${cameraCount} камер`, 0, "шт", "Регистраторы", "Не найден в базе: подберите NVR по количеству каналов.");
+}
+
+function pickSwitch(products) {
+  return cheapestProduct(products, (product) => productText(product).includes("optimus u1i-4f/2f"))
+    || fallbackProduct("estimate-poe-switch", "Коммутатор Optimus U1I-4F/2F", 0, "шт", "Сеть", "1 шт на каждые 4 камеры.");
+}
+
+function pickCable(products) {
+  return cheapestProduct(products, (product) => productText(product).includes("optimus u5e-4x2x0.48 cu"))
+    || fallbackProduct("estimate-cable-u5e", "Кабель Optimus U5e-4x2x0.48 Cu (IN)", estimateRates.cableMaterial, "м", "Сеть", "Материал кабеля по нормативу 15 м на камеру.");
+}
+
+function buildAutoEstimate(products, area, complexity, objectType = "Склад", attention = {}) {
+  const numericArea = Math.max(0, Number(area) || 0);
+  const workAttention = Math.max(0, Math.round(Number(attention.workplaces) || 0));
+  const pointAttention = Math.max(0, Math.round(Number(attention.points) || 0));
+  const buildingLength = numericArea / 10;
+  const perimeterCameraCount = Math.max(1, Math.ceil(buildingLength / estimateRates.cameraStepMeters) + 1);
+  const baseCameraCount = objectType === "Дом"
+    ? 4
+    : perimeterCameraCount
+      + (["Офис", "Производство"].includes(objectType) ? workAttention : 0)
+      + (["Магазин", "Производство"].includes(objectType) ? pointAttention : 0);
+  const cameraCount = complexity === "hard" && baseCameraCount > 10
+    ? Math.ceil(baseCameraCount * 1.3)
+    : baseCameraCount;
+  const switchCount = Math.max(1, Math.ceil(cameraCount / 4));
+  const cableMeters = cameraCount * estimateRates.cablePerCamera;
+  const camera = pickCamera(products, complexity);
+  const nvr = pickNvr(products, cameraCount);
+  const poeSwitch = pickSwitch(products);
+  const cable = pickCable(products);
+  const lines = [
+    {
+      id: "auto-camera",
+      type: "equipment",
+      name: camera.name,
+      note: `IP-камера ${complexity === "simple" ? "2 Мп" : "4 Мп"}; шаг между камерами до ${estimateRates.cameraStepMeters} м.`,
+      qty: cameraCount,
+      unit: camera.unit || "шт",
+      price: Number(camera.price || 0)
+    },
+    {
+      id: "auto-nvr",
+      type: "equipment",
+      name: nvr.name,
+      note: `NVR под ${cameraCount} камер. Нужен жёсткий диск для архива; диск указан в описании, но не включён в стоимость.`,
+      qty: 1,
+      unit: nvr.unit || "шт",
+      price: Number(nvr.price || 0)
+    },
+    {
+      id: "auto-switch",
+      type: "equipment",
+      name: poeSwitch.name,
+      note: "PoE-коммутатор: 1 шт на каждые 4 камеры.",
+      qty: switchCount,
+      unit: poeSwitch.unit || "шт",
+      price: Number(poeSwitch.price || 0)
+    },
+    {
+      id: "auto-cable",
+      type: "equipment",
+      name: cable.name,
+      note: `${estimateRates.cablePerCamera} м на каждую камеру.`,
+      qty: cableMeters,
+      unit: "м",
+      price: estimateRates.cableMaterial
+    },
+    { id: "work-camera", type: "work", name: "Монтаж камеры", note: `${cameraCount} точек установки.`, qty: cameraCount, unit: "шт", price: estimateRates.cameraInstall },
+    { id: "work-nvr", type: "work", name: "Монтаж регистратора", note: "Установка и подключение NVR.", qty: 1, unit: "шт", price: estimateRates.nvrInstall },
+    { id: "work-switch", type: "work", name: "Монтаж PoE-коммутатора", note: `${switchCount} коммутаторов.`, qty: switchCount, unit: "шт", price: estimateRates.switchInstall },
+    { id: "work-cable", type: "work", name: "Прокладка кабеля витая пара", note: `${estimateRates.cablePerCamera} м на камеру.`, qty: cableMeters, unit: "м", price: estimateRates.cableInstall },
+    { id: "work-remote", type: "work", name: "Настройка удалённого доступа", note: "Мобильное приложение, доступ клиента и базовая проверка.", qty: 1, unit: "шт", price: estimateRates.remoteAccess }
+  ];
+  return {
+    buildingLength,
+    baseCameraCount,
+    perimeterCameraCount,
+    workAttention,
+    pointAttention,
+    cameraCount,
+    switchCount,
+    cableMeters,
+    lines
+  };
+}
+
+function printEstimateDocument({ objectType, area, complexity, autoLines, manualLines, totals, metrics }) {
+  const oldFrame = document.getElementById("estimate-print-frame");
+  oldFrame?.remove();
+  const frame = document.createElement("iframe");
+  frame.id = "estimate-print-frame";
+  frame.title = "Печатная смета ВСБ39";
+  frame.style.position = "fixed";
+  frame.style.right = "0";
+  frame.style.bottom = "0";
+  frame.style.width = "1px";
+  frame.style.height = "1px";
+  frame.style.border = "0";
+  frame.style.opacity = "0";
+  document.body.appendChild(frame);
+  const printWindow = frame.contentWindow;
+  if (!printWindow) return false;
+  const complexityLabel = complexity === "simple" ? "простая" : complexity === "hard" ? "сложная" : "стандартная";
+  const row = (line) => `
+    <tr>
+      <td>
+        <strong>${escapeHtml(line.name)}</strong>
+        <small>${escapeHtml(line.note || "")}</small>
+      </td>
+      <td>${escapeHtml(line.qty)} ${escapeHtml(line.unit || "шт")}</td>
+      <td>${escapeHtml(formatMoney(line.price, line.unit))}</td>
+      <td>${escapeHtml(formatMoney(line.price * line.qty))}</td>
+    </tr>
+  `;
+  const html = `<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Смета ВСБ39</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 28px; color: #07101e; font-family: Arial, sans-serif; background: #fff; }
+    header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #07101e; padding-bottom: 18px; margin-bottom: 22px; }
+    h1 { margin: 0; font-size: 28px; }
+    h2 { margin: 24px 0 10px; font-size: 17px; }
+    p { margin: 6px 0; color: #4b5563; }
+    .brand { font-weight: 800; color: #ff6b2c; }
+    .meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 18px 0; }
+    .meta div { border: 1px solid #dbe3ef; border-radius: 8px; padding: 10px; }
+    .meta span { display: block; color: #64748b; font-size: 12px; }
+    .meta b { display: block; margin-top: 4px; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { border-bottom: 1px solid #dbe3ef; padding: 10px 8px; text-align: left; vertical-align: top; }
+    th { color: #64748b; font-size: 12px; text-transform: uppercase; }
+    td:nth-child(2), td:nth-child(3), td:nth-child(4), th:nth-child(2), th:nth-child(3), th:nth-child(4) { text-align: right; white-space: nowrap; }
+    small { display: block; margin-top: 4px; color: #64748b; line-height: 1.35; }
+    .summary { margin-left: auto; margin-top: 18px; width: 360px; border: 1px solid #dbe3ef; border-radius: 10px; padding: 14px; }
+    .summary div { display: flex; justify-content: space-between; gap: 18px; padding: 7px 0; }
+    .summary .total { border-top: 1px solid #dbe3ef; margin-top: 8px; padding-top: 12px; font-size: 18px; font-weight: 800; }
+    footer { margin-top: 28px; color: #64748b; font-size: 12px; }
+    @media print { body { padding: 16mm; } .summary { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Смета <span class="brand">ВСБ39</span></h1>
+      <p>Ваша Система Безопасности. Видим. Стережём. Бережём.</p>
+    </div>
+    <div>
+      <p><strong>Дата:</strong> ${escapeHtml(new Date().toLocaleDateString("ru-RU"))}</p>
+      <p><strong>Объект:</strong> ${escapeHtml(objectType)}, ${escapeHtml(area)} м²</p>
+      <p><strong>Сложность:</strong> ${escapeHtml(complexityLabel)}</p>
+    </div>
+  </header>
+  <section class="meta">
+    <div><span>Длина здания</span><b>${escapeHtml(metrics.buildingLength)} м</b></div>
+    <div><span>Камер</span><b>${escapeHtml(metrics.cameraQty)} шт</b></div>
+    <div><span>Кабель</span><b>${escapeHtml(metrics.cableQty)} м</b></div>
+    <div><span>PoE</span><b>${escapeHtml(metrics.switchQty)} шт</b></div>
+  </section>
+  <h2>Автоматический расчёт</h2>
+  <table>
+    <thead><tr><th>Позиция</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr></thead>
+    <tbody>${autoLines.map(row).join("")}</tbody>
+  </table>
+  ${manualLines.length ? `
+    <h2>Дополнительно из каталога</h2>
+    <table>
+      <thead><tr><th>Позиция</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr></thead>
+      <tbody>${manualLines.map(row).join("")}</tbody>
+    </table>
+  ` : ""}
+  <section class="summary">
+    <div><span>Оборудование</span><b>${escapeHtml(formatMoney(totals.equipment))}</b></div>
+    <div><span>Монтаж и настройка</span><b>${escapeHtml(formatMoney(totals.work))}</b></div>
+    <div><span>Дополнительно</span><b>${escapeHtml(formatMoney(totals.manual))}</b></div>
+    <div class="total"><span>Итого</span><b>${escapeHtml(formatMoney(totals.total))}</b></div>
+  </section>
+  <footer>Жёсткий диск для архива указывается в описании NVR и не включён в стоимость сметы.</footer>
+</body>
+</html>`;
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+  window.setTimeout(() => {
+    printWindow.focus();
+    printWindow.print();
+  }, 250);
+  return true;
 }
 
 function parseNumber(value) {
@@ -1174,36 +1453,66 @@ function ParserPanel({ onImport }) {
 }
 
 function AdminAI() {
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("vsb39_vsegpt_key") || "");
+  const [apiKey, setApiKey] = useState("");
+  const [hasStoredKey, setHasStoredKey] = useState(() => Boolean(localStorage.getItem("vsb39_vsegpt_key")));
   const [saved, setSaved] = useState(false);
   const [testStatus, setTestStatus] = useState("Ключ не проверялся");
 
   function saveKey() {
-    localStorage.setItem("vsb39_vsegpt_key", apiKey.trim());
+    const key = apiKey.trim();
+    if (!key) {
+      setTestStatus(hasStoredKey ? "Ключ уже сохранён. Введите новый ключ, чтобы заменить его." : "Введите ключ перед сохранением");
+      return;
+    }
+    localStorage.setItem("vsb39_vsegpt_key", key);
+    setApiKey("");
+    setHasStoredKey(true);
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1800);
   }
 
   async function testKey() {
-    const key = apiKey.trim();
+    const key = apiKey.trim() || localStorage.getItem("vsb39_vsegpt_key") || "";
     if (!key) {
       setTestStatus("Введите ключ перед проверкой");
       return;
     }
-    setTestStatus("Проверяю баланс VseGPT...");
+    const chatModel = aiProfiles.find((profile) => profile.role === "Чат-консультант")?.model || "openai/gpt-5.4-nano";
+    setTestStatus(`Проверяю API VseGPT через ${chatModel}...`);
     try {
-      const response = await fetch("https://api.vsegpt.ru/v1/balance", {
+      const response = await fetch("https://api.vsegpt.ru/v1/chat/completions", {
+        method: "POST",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${key}`,
           "X-Api-Key": key
-        }
+        },
+        body: JSON.stringify({
+          model: chatModel,
+          messages: [
+            { role: "system", content: "Ответь одним словом: ok" },
+            { role: "user", content: "Проверка подключения" }
+          ],
+          temperature: 0,
+          max_tokens: 32
+        })
       });
       const text = await response.text();
       if (!response.ok) {
-        setTestStatus(`Ошибка ${response.status}: ${text.slice(0, 120)}`);
+        if (text.includes("Balance call disable")) {
+          setTestStatus("Ключ принят, но проверка баланса отключена в VseGPT. Для теста используйте проверку чата.");
+          return;
+        }
+        if (text.includes("max_output_tokens") || text.includes("max_tokens")) {
+          setTestStatus("Ключ отвечает, но провайдер отклонил лимит токенов тестового запроса. Попробуйте ещё раз после обновления страницы.");
+          return;
+        }
+        setTestStatus(`Ошибка API ${response.status}: ${text.slice(0, 180)}`);
         return;
       }
-      setTestStatus(`Ключ отвечает: ${text.slice(0, 160)}`);
+      const payload = JSON.parse(text);
+      const answer = payload?.choices?.[0]?.message?.content?.trim();
+      setTestStatus(answer ? `Ключ работает, модель ответила: ${answer}` : "Ключ работает, VseGPT вернул успешный ответ.");
     } catch (error) {
       setTestStatus(`Не удалось проверить из браузера: ${error.message}`);
     }
@@ -1228,13 +1537,14 @@ function AdminAI() {
               type="password"
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
-              placeholder="sk-or-v..."
+              placeholder={hasStoredKey ? "ключ сохранён, введите новый для замены" : "sk-or-v..."}
               autoComplete="off"
             />
             <Button onClick={saveKey}>{saved ? "Сохранено" : "Сохранить"}</Button>
             <Button variant="outline" onClick={testKey}>Проверить</Button>
           </div>
-          <small>Base URL: https://api.vsegpt.ru/v1 · основной вызов: v1/chat/completions</small>
+          <small>Base URL: https://api.vsegpt.ru/v1 · проверка идёт через v1/chat/completions, потому что баланс может быть отключён в настройках ключа.</small>
+          {hasStoredKey && <small>Ключ сохранён локально и скрыт из интерфейса.</small>}
           <small>{testStatus}</small>
         </div>
         <div className="model-board">
@@ -1570,11 +1880,17 @@ function Catalog({ products, query, setQuery, filters, setFilters, selected, set
     ? ranked
     : products;
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, filters]);
+
   const pageSize = 36;
   const pageCount = Math.max(1, Math.ceil(visible.length / pageSize));
   const safePage = Math.min(page, pageCount);
   const renderedProducts = visible.slice((safePage - 1) * pageSize, safePage * pageSize);
-  const activeProduct = selected || visible[0] || products[0];
+  const selectedInVisible = selected && visible.some((product) => product.id === selected.id);
+  const activeProduct = selectedInVisible ? selected : visible[0] || (!hasSearchOrFilters ? products[0] : null);
   const similar = similarProducts(activeProduct, products);
 
   return (
@@ -1614,12 +1930,23 @@ function Catalog({ products, query, setQuery, filters, setFilters, selected, set
         </div>
         <aside className="similar-panel">
           <div className="similar-main">
-            <span className="tag blue">выбрано</span>
-            <ProductVisual category={activeProduct?.category} photo={activeProduct?.photo} />
-            <h3>{activeProduct?.name}</h3>
-            <p>{activeProduct?.brand} · {activeProduct?.resolution} · {activeProduct?.analytics}</p>
-            <strong>{activeProduct ? formatMoney(activeProduct.price, activeProduct.unit) : "0 ₽"}</strong>
-            <Button onClick={() => activeProduct && onAdd(activeProduct)}><Plus size={17} />Добавить в смету</Button>
+            {activeProduct ? (
+              <>
+                <span className="tag blue">выбрано</span>
+                <ProductVisual category={activeProduct.category} photo={activeProduct.photo} />
+                <h3>{activeProduct.name}</h3>
+                <p>{activeProduct.brand} · {activeProduct.resolution} · {activeProduct.analytics}</p>
+                <strong>{formatMoney(activeProduct.price, activeProduct.unit)}</strong>
+                <Button onClick={() => onAdd(activeProduct)}><Plus size={17} />Добавить в смету</Button>
+              </>
+            ) : (
+              <>
+                <span className="tag blue">нет результата</span>
+                <ProductVisual category="Прочее" />
+                <h3>Ничего не найдено</h3>
+                <p>Ослабьте фильтры или измените запрос, чтобы увидеть подходящее оборудование.</p>
+              </>
+            )}
           </div>
           <div className="similar-list">
             <h4>Похожие по характеристикам</h4>
@@ -1636,17 +1963,69 @@ function Catalog({ products, query, setQuery, filters, setFilters, selected, set
   );
 }
 
-function Estimate({ items, setItems }) {
+function Estimate({ products = [], items, setItems }) {
   const [objectType, setObjectType] = useState("Склад");
   const [area, setArea] = useState(300);
   const [complexity, setComplexity] = useState("standard");
+  const [workplacesAttention, setWorkplacesAttention] = useState(0);
+  const [pointsAttention, setPointsAttention] = useState(0);
+  const [autoQty, setAutoQty] = useState({});
+  const [pdfStatus, setPdfStatus] = useState("");
 
-  const equipmentTotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const cableMeters = Math.max(40, Math.round(Number(area || 0) * 0.34));
-  const installRate = complexity === "simple" ? 0.22 : complexity === "hard" ? 0.42 : 0.32;
-  const installTotal = Math.round(equipmentTotal * installRate + cableMeters * 85);
-  const projectTotal = complexity === "hard" ? 9000 : 5000;
-  const total = equipmentTotal + installTotal + projectTotal;
+  const showWorkplaces = ["Офис", "Производство"].includes(objectType);
+  const showPoints = ["Магазин", "Производство"].includes(objectType);
+  const autoEstimate = useMemo(() => buildAutoEstimate(products, area, complexity, objectType, {
+    workplaces: workplacesAttention,
+    points: pointsAttention
+  }), [products, area, complexity, objectType, workplacesAttention, pointsAttention]);
+  const adjustedAutoLines = useMemo(() => autoEstimate.lines.map((line) => ({
+    ...line,
+    qty: Math.max(0, Number(autoQty[line.id] ?? line.qty) || 0)
+  })), [autoEstimate.lines, autoQty]);
+  const metrics = useMemo(() => ({
+    buildingLength: autoEstimate.buildingLength.toFixed(1),
+    cameraQty: adjustedAutoLines.find((line) => line.id === "auto-camera")?.qty || 0,
+    cableQty: adjustedAutoLines.find((line) => line.id === "auto-cable")?.qty || 0,
+    switchQty: adjustedAutoLines.find((line) => line.id === "auto-switch")?.qty || 0
+  }), [adjustedAutoLines, autoEstimate.buildingLength]);
+  const autoEquipmentTotal = adjustedAutoLines
+    .filter((line) => line.type === "equipment")
+    .reduce((sum, line) => sum + line.price * line.qty, 0);
+  const autoWorkTotal = adjustedAutoLines
+    .filter((line) => line.type === "work")
+    .reduce((sum, line) => sum + line.price * line.qty, 0);
+  const manualTotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const total = autoEquipmentTotal + autoWorkTotal + manualTotal;
+
+  useEffect(() => {
+    setAutoQty({});
+  }, [area, complexity, products, objectType, workplacesAttention, pointsAttention]);
+
+  function linkedAutoQty(id, qty) {
+    const next = { [id]: qty };
+    if (id === "auto-camera") {
+      next["work-camera"] = qty;
+      next["auto-cable"] = qty * estimateRates.cablePerCamera;
+      next["work-cable"] = qty * estimateRates.cablePerCamera;
+      next["auto-switch"] = Math.max(1, Math.ceil(qty / 4));
+      next["work-switch"] = Math.max(1, Math.ceil(qty / 4));
+    }
+    if (id === "auto-nvr") next["work-nvr"] = qty;
+    if (id === "auto-switch") next["work-switch"] = qty;
+    if (id === "auto-cable") next["work-cable"] = qty;
+    return next;
+  }
+
+  function updateAutoQty(id, value) {
+    const qty = Math.max(0, Math.round(Number(value) || 0));
+    setAutoQty((current) => ({ ...current, ...linkedAutoQty(id, qty) }));
+  }
+
+  function changeAutoQty(id, delta) {
+    const line = adjustedAutoLines.find((item) => item.id === id);
+    if (!line) return;
+    updateAutoQty(id, line.qty + delta);
+  }
 
   function updateQty(id, delta) {
     setItems((current) =>
@@ -1656,11 +2035,41 @@ function Estimate({ items, setItems }) {
     );
   }
 
+  function setManualQty(id, value) {
+    setItems((current) =>
+      current
+        .map((item) => item.id === id ? { ...item, qty: Math.max(0, Math.round(Number(value) || 0)) } : item)
+        .filter((item) => item.qty > 0)
+    );
+  }
+
+  function exportPdf() {
+    const manualLines = items.map((item) => ({
+      ...item,
+      note: item.brand ? `${item.brand}${item.source ? ` · ${item.source}` : ""}` : item.source || ""
+    }));
+    const ok = printEstimateDocument({
+      objectType,
+      area,
+      complexity,
+      autoLines: adjustedAutoLines,
+      manualLines,
+      metrics,
+      totals: {
+        equipment: autoEquipmentTotal,
+        work: autoWorkTotal,
+        manual: manualTotal,
+        total
+      }
+    });
+    setPdfStatus(ok ? "Открыт диалог печати. В нём выберите «Сохранить как PDF»." : "Не удалось подготовить печатную версию. Попробуйте обновить страницу.");
+  }
+
   return (
     <section className="estimate-section" id="estimate">
       <div className="estimate-copy">
         <h2>Калькулятор сметы</h2>
-        <p>Зона для будущего ИИ-сметчика: оборудование берётся из каталога, монтаж считается по площади, типу объекта и сложности трасс.</p>
+        <p>Расчёт собирает минимальный комплект IP-видеонаблюдения из базы: камеры, NVR, PoE, кабель и монтажные работы.</p>
         <div className="estimate-form">
           <label>
             Тип объекта
@@ -1680,24 +2089,73 @@ function Estimate({ items, setItems }) {
               <option value="hard">сложная</option>
             </select>
           </label>
+          {showWorkplaces && (
+            <label>
+              Рабочие места, требующие внимания
+              <input value={workplacesAttention} onChange={(event) => setWorkplacesAttention(event.target.value)} inputMode="numeric" />
+            </label>
+          )}
+          {showPoints && (
+            <label>
+              Точки, требующие внимания
+              <input value={pointsAttention} onChange={(event) => setPointsAttention(event.target.value)} inputMode="numeric" />
+            </label>
+          )}
         </div>
         <div className="estimate-points">
-          {["Проект и аудит", "Монтаж и пусконаладка", "Сервис и поддержка"].map((item) => (
-            <span key={item}><Check size={16} />{item}</span>
-          ))}
+          <span><Check size={16} />Длина здания: {metrics.buildingLength} м</span>
+          <span><Check size={16} />Камер: {metrics.cameraQty} шт</span>
+          <span><Check size={16} />Кабель: {metrics.cableQty} м</span>
+          <span><Check size={16} />PoE: {metrics.switchQty} шт</span>
         </div>
       </div>
       <div className="estimate-card">
         <div className="estimate-card-top">
           <div>
             <strong>Смета ВСБ39</strong>
-            <span>{objectType}, {area} м²</span>
+            <span>{objectType}, {area} м² · {complexity === "simple" ? "простая" : complexity === "hard" ? "сложная" : "стандартная"}</span>
+          </div>
+          <div className="estimate-top-total">
+            <span>Стоимость сметы</span>
+            <b>{formatMoney(total)}</b>
           </div>
           <CircleDollarSign size={28} />
         </div>
+        <div className="estimate-metrics">
+          <div><span>Шаг камер</span><b>до {estimateRates.cameraStepMeters} м</b></div>
+          <div><span>Кабель на камеру</span><b>{estimateRates.cablePerCamera} м</b></div>
+          <div><span>Расчёт камер</span><b>{autoEstimate.baseCameraCount}{autoEstimate.cameraCount !== autoEstimate.baseCameraCount ? ` +30% = ${autoEstimate.cameraCount}` : ""}</b></div>
+        </div>
         <div className="estimate-items">
+          <div className="estimate-group-title">Автоматический расчёт</div>
+          {adjustedAutoLines.map((line) => (
+            <div className="estimate-item estimate-line" key={line.id}>
+              <div>
+                <strong>{line.name}</strong>
+                <span>{line.note}</span>
+              </div>
+              <div className="line-controls">
+                <div className="qty">
+                  <button onClick={() => changeAutoQty(line.id, -1)}>-</button>
+                  <input
+                    data-line-id={line.id}
+                    value={line.qty}
+                    onChange={(event) => updateAutoQty(line.id, event.target.value)}
+                    inputMode="numeric"
+                    aria-label={`Количество: ${line.name}`}
+                  />
+                  <button onClick={() => changeAutoQty(line.id, 1)}>+</button>
+                </div>
+                <div className="line-price">
+                <span>{line.qty} {line.unit} x {formatMoney(line.price, line.unit)}</span>
+                <b>{formatMoney(line.price * line.qty)}</b>
+                </div>
+              </div>
+            </div>
+          ))}
+          <div className="estimate-group-title">Дополнительно из каталога</div>
           {items.length === 0 ? (
-            <p className="empty-estimate">Добавьте оборудование из каталога, и здесь появятся строки сметы.</p>
+            <p className="empty-estimate">Дополнительные позиции пока не добавлены.</p>
           ) : items.map((item) => (
             <div className="estimate-item" key={item.id}>
               <div>
@@ -1706,22 +2164,29 @@ function Estimate({ items, setItems }) {
               </div>
               <div className="qty">
                 <button onClick={() => updateQty(item.id, -1)}>-</button>
-                <span>{item.qty}</span>
+                <input
+                  data-line-id={`manual-${item.id}`}
+                  value={item.qty}
+                  onChange={(event) => setManualQty(item.id, event.target.value)}
+                  inputMode="numeric"
+                  aria-label={`Количество: ${item.name}`}
+                />
                 <button onClick={() => updateQty(item.id, 1)}>+</button>
               </div>
             </div>
           ))}
         </div>
         <div className="estimate-summary">
-          <div><span>Оборудование</span><b>{formatMoney(equipmentTotal)}</b></div>
-          <div><span>Кабель и монтаж</span><b>{formatMoney(installTotal)}</b></div>
-          <div><span>Проект</span><b>{formatMoney(projectTotal)}</b></div>
+          <div><span>Оборудование</span><b>{formatMoney(autoEquipmentTotal)}</b></div>
+          <div><span>Монтаж и настройка</span><b>{formatMoney(autoWorkTotal)}</b></div>
+          <div><span>Дополнительно</span><b>{formatMoney(manualTotal)}</b></div>
           <div className="total"><span>Итого</span><b>{formatMoney(total)}</b></div>
         </div>
         <div className="estimate-actions">
-          <Button><Download size={17} />PDF</Button>
+          <Button onClick={exportPdf}><Download size={17} />PDF</Button>
           <Button variant="outline" onClick={() => setItems([])}><Trash2 size={17} />Очистить</Button>
         </div>
+        {pdfStatus && <p className="pdf-status">{pdfStatus}</p>}
       </div>
     </section>
   );
@@ -1920,7 +2385,7 @@ function App() {
       {route === "prices" && <PricesPage />}
       {route === "estimate" && (
         <main>
-          <Estimate items={estimateItems} setItems={setEstimateItems} />
+          <Estimate products={products} items={estimateItems} setItems={setEstimateItems} />
         </main>
       )}
       {route === "about" && <AboutPage />}
