@@ -134,7 +134,7 @@ const seedEquipment = [
   }
 ];
 
-const categories = ["Все", "Камеры", "Регистраторы", "СКУД", "ОПС", "Сеть", "Работы", "Прочее"];
+const categories = ["Все", "Камеры", "Регистраторы", "СКУД", "ОПС", "Сеть", "Работы", "Разное"];
 const categoryIcons = {
   Камеры: Camera,
   Регистраторы: HardDrive,
@@ -142,7 +142,7 @@ const categoryIcons = {
   ОПС: Flame,
   Сеть: Network,
   Работы: Wrench,
-  Прочее: ShieldCheck
+  Разное: ShieldCheck
 };
 
 const aiProfiles = [
@@ -334,6 +334,8 @@ function navigateTo(route) {
 const DB_NAME = "vsb39-local-db";
 const DB_VERSION = 1;
 const STORE_NAME = "state";
+const CATALOG_VERSION = "optimus-2026-04-07-only-v1";
+const DEFAULT_CATALOG_URL = "/data/optimus-products.json";
 
 function openLocalDb() {
   return new Promise((resolve, reject) => {
@@ -392,6 +394,13 @@ async function idbDelete(key) {
   } catch {
     return false;
   }
+}
+
+async function loadDefaultCatalog() {
+  const response = await fetch(DEFAULT_CATALOG_URL, { cache: "no-store" });
+  if (!response.ok) throw new Error("Не удалось загрузить стартовый каталог");
+  const products = await response.json();
+  return Array.isArray(products) ? products.map(normalizeStoredProduct) : [];
 }
 
 function SeoManager({ route }) {
@@ -457,27 +466,87 @@ function scoreProduct(product, query, filters) {
     if (text.includes(word)) score += product.name.toLowerCase().includes(word) ? 7 : 3;
   });
 
-  if (filters.category !== "Все" && product.category !== filters.category) return -1;
-  if (filters.brand !== "Все" && product.brand !== filters.brand) return -1;
-  if (filters.resolution !== "Все" && product.resolution !== filters.resolution) return -1;
-  if (filters.formFactor !== "Все" && product.formFactor !== filters.formFactor) return -1;
-  if (filters.lens !== "Все" && product.lens !== filters.lens) return -1;
-  if (filters.ipRating !== "Все" && product.ipRating !== filters.ipRating) return -1;
-  if (filters.channels !== "Все" && String(product.channels || "") !== filters.channels) return -1;
-  if (filters.codec !== "Все" && product.codec !== filters.codec) return -1;
-  if (filters.poe && !product.poe) return -1;
-  if (filters.outdoor && !product.outdoor) return -1;
-  if (filters.wdr && !product.wdr) return -1;
-  if (filters.mic && !product.mic) return -1;
-  if (filters.audio && !product.audio) return -1;
-  if (filters.ik && !product.ik) return -1;
-  if (filters.colorNight && !product.colorNight) return -1;
-  if (filters.hasPhoto && !product.photo) return -1;
-  if (filters.minPrice && product.price < Number(filters.minPrice)) return -1;
-  if (filters.maxPrice && product.price > Number(filters.maxPrice)) return -1;
+  if (!matchesProductFilters(product, filters)) return -1;
   if (filters.category !== "Все") score += 2;
   if (filters.brand !== "Все") score += 2;
   return score;
+}
+
+const selectFilterKeys = ["category", "brand", "resolution", "formFactor", "lens", "ipRating", "channels", "codec", "spec"];
+const booleanFilterKeys = ["poe", "outdoor", "wdr", "mic", "audio", "ik", "colorNight", "hasPhoto"];
+
+function optionValue(product, key) {
+  if (key === "channels") return product.channels ? String(product.channels) : "";
+  if (key === "spec") return product.specFilters || [];
+  if (key === "category") return product.category || "";
+  return product[key] || "";
+}
+
+function optionValues(product, key) {
+  const value = optionValue(product, key);
+  return Array.isArray(value) ? value : [value];
+}
+
+function hasFilterValue(product, key, value) {
+  if (!value || value === "Все") return true;
+  return optionValues(product, key).map(String).includes(String(value));
+}
+
+function matchesProductFilters(product, filters, ignoredKey = "") {
+  if (filters.category !== "Все" && ignoredKey !== "category" && product.category !== filters.category) return false;
+  if (filters.brand !== "Все" && ignoredKey !== "brand" && product.brand !== filters.brand) return false;
+  if (filters.resolution !== "Все" && ignoredKey !== "resolution" && product.resolution !== filters.resolution) return false;
+  if (filters.formFactor !== "Все" && ignoredKey !== "formFactor" && product.formFactor !== filters.formFactor) return false;
+  if (filters.lens !== "Все" && ignoredKey !== "lens" && product.lens !== filters.lens) return false;
+  if (filters.ipRating !== "Все" && ignoredKey !== "ipRating" && product.ipRating !== filters.ipRating) return false;
+  if (filters.channels !== "Все" && ignoredKey !== "channels" && String(product.channels || "") !== filters.channels) return false;
+  if (filters.codec !== "Все" && ignoredKey !== "codec" && product.codec !== filters.codec) return false;
+  if (filters.spec !== "Все" && ignoredKey !== "spec" && !hasFilterValue(product, "spec", filters.spec)) return false;
+  if (filters.poe && ignoredKey !== "poe" && !product.poe) return false;
+  if (filters.outdoor && ignoredKey !== "outdoor" && !product.outdoor) return false;
+  if (filters.wdr && ignoredKey !== "wdr" && !product.wdr) return false;
+  if (filters.mic && ignoredKey !== "mic" && !product.mic) return false;
+  if (filters.audio && ignoredKey !== "audio" && !product.audio) return false;
+  if (filters.ik && ignoredKey !== "ik" && !product.ik) return false;
+  if (filters.colorNight && ignoredKey !== "colorNight" && !product.colorNight) return false;
+  if (filters.hasPhoto && ignoredKey !== "hasPhoto" && !product.photo) return false;
+  if (filters.minPrice && ignoredKey !== "minPrice" && product.price < Number(filters.minPrice)) return false;
+  if (filters.maxPrice && ignoredKey !== "maxPrice" && product.price > Number(filters.maxPrice)) return false;
+  return true;
+}
+
+function sortFilterValues(key, values) {
+  const clean = values.filter(Boolean).filter((value) => value !== "-");
+  if (key === "channels") return clean.sort((a, b) => Number(a) - Number(b));
+  if (key === "resolution") {
+    return clean.sort((a, b) => {
+      const parse = (value) => Number(String(value).replace(",", ".").match(/\d+(?:\.\d+)?/)?.[0] || 0);
+      return parse(a) - parse(b) || String(a).localeCompare(String(b), "ru");
+    });
+  }
+  return clean.sort((a, b) => String(a).localeCompare(String(b), "ru"));
+}
+
+function buildFilterOptions(products, filters, key) {
+  const counts = new Map();
+  products
+    .filter((product) => matchesProductFilters(product, filters, key))
+    .forEach((product) => {
+      optionValues(product, key).forEach((value) => {
+        const clean = String(value || "").trim();
+        if (!clean || clean === "-") return;
+        counts.set(clean, (counts.get(clean) || 0) + 1);
+      });
+    });
+  return sortFilterValues(key, Array.from(counts.keys())).map((value) => ({ value, count: counts.get(value) || 0 }));
+}
+
+function availableBooleanFilters(products, filters) {
+  return booleanFilterKeys.reduce((acc, key) => {
+    const count = products.filter((product) => matchesProductFilters(product, filters, key) && (key === "hasPhoto" ? product.photo : product[key])).length;
+    acc[key] = count;
+    return acc;
+  }, {});
 }
 
 function similarProducts(product, list) {
@@ -552,7 +621,7 @@ function cheapestProduct(products, predicate) {
     .sort((a, b) => a.price - b.price)[0] || null;
 }
 
-function fallbackProduct(id, name, price, unit = "шт", category = "Прочее", description = "") {
+function fallbackProduct(id, name, price, unit = "шт", category = "Разное", description = "") {
   return { id, name, price, unit, category, description, source: "расчёт ВСБ39" };
 }
 
@@ -783,14 +852,39 @@ function cellText(value) {
 }
 
 function inferCategory(sheetName, name = "", description = "") {
-  const text = normalize(`${sheetName} ${name} ${description}`);
-  if (text.includes("работ") || text.includes("монтаж") || text.includes("демонтаж") || text.includes("прокладка")) return "Работы";
-  if (text.includes("камер") || text.includes("видеокамер") || text.includes("сот")) return "Камеры";
-  if (text.includes("регистратор") || text.includes("nvr") || text.includes("dvr")) return "Регистраторы";
+  const sheet = normalize(sheetName);
+  const title = normalize(name);
+  const descriptionText = normalize(description);
+  const primary = `${sheet} ${title}`;
+  const text = `${primary} ${descriptionText}`;
+
+  if (
+    primary.includes("регистратор") ||
+    primary.includes("видеорегистратор") ||
+    primary.includes("nvr") ||
+    primary.includes("dvr") ||
+    primary.includes("ahdr") ||
+    primary.includes("mdvr") ||
+    primary.includes("xvr")
+  ) return "Регистраторы";
+
+  if (
+    title.includes("камер") ||
+    title.includes("видеокамер") ||
+    (sheet.includes("камер") && !sheet.includes("регистратор"))
+  ) return "Камеры";
+
+  if (
+    sheet.includes("работ") ||
+    /(^|[\s_])(монтаж|демонтаж|прокладка|пусконаладка|обслуживание)([\s_]|$)/.test(title)
+  ) return "Работы";
+
   if (text.includes("скуд") || text.includes("домофон") || text.includes("контроллер") || text.includes("считывател")) return "СКУД";
   if (text.includes("кабель") || text.includes("коммутатор") || text.includes("сеть") || text.includes("скс") || text.includes("poe")) return "Сеть";
   if (text.includes("опс") || text.includes("сигнал") || text.includes("извещател") || text.includes("пожар")) return "ОПС";
-  return "Прочее";
+  if (text.includes("регистратор") || text.includes("видеорегистратор") || text.includes("nvr") || text.includes("dvr")) return "Регистраторы";
+  if (text.includes("камер") || text.includes("видеокамер") || text.includes("сот")) return "Камеры";
+  return "Разное";
 }
 
 function extractResolution(text) {
@@ -898,7 +992,25 @@ function priceTierIndexes(headers) {
   return mapped;
 }
 
-function parseRowsFromObjects(rows, source, fallbackCategory = "Прочее") {
+function isImageUrl(value) {
+  const text = cellText(value);
+  return /^data:image\//i.test(text) || /^https?:\/\/.+\.(?:png|jpe?g|webp|gif)(?:[?#].*)?$/i.test(text);
+}
+
+function normalizePhoto(value) {
+  const text = cellText(value);
+  return isImageUrl(text) ? text : "";
+}
+
+function normalizeProductUrl(...values) {
+  return values.map(cellText).find((value) => /^https?:\/\//i.test(value) && !isImageUrl(value)) || "";
+}
+
+function photoSearchQuery({ name, brand, code }) {
+  return [brand, code, name, "фото товара"].map(cellText).filter(Boolean).join(" ");
+}
+
+function parseRowsFromObjects(rows, source, fallbackCategory = "Разное") {
   const pick = (row, keys) => {
     const found = Object.keys(row).find((key) => keys.some((alias) => normalize(key).includes(alias)));
     return found ? row[found] : "";
@@ -914,6 +1026,8 @@ function parseRowsFromObjects(rows, source, fallbackCategory = "Прочее") {
       const description = pick(row, ["характер", "описание", "features", "spec", "аналит"]);
       const category = pick(row, ["category", "категория", "группа", "раздел"]) || fallbackCategory;
       const brand = pick(row, ["brand", "бренд", "производитель"]) || String(name).split(/\s+/)[0];
+      const photo = pick(row, ["photo", "фото", "изображ", "картин"]);
+      const productUrl = pick(row, ["url", "ссылка", "link"]);
       return makeProduct({
         index,
         source,
@@ -923,28 +1037,38 @@ function parseRowsFromObjects(rows, source, fallbackCategory = "Прочее") {
         price,
         description,
         unit: pick(row, ["ед", "unit"]) || "шт",
-        code: pick(row, ["код", "code"])
+        code: pick(row, ["код", "code"]),
+        photo,
+        productUrl
       });
     })
     .filter(Boolean);
 }
 
-function makeProduct({ index, source, name, brand, category, price, priceTiers = {}, description, unit, code, photo }) {
+function makeProduct({ index, source, name, brand, category, price, priceTiers = {}, description, unit, code, photo, marketingPhotos = [], productUrl }) {
   const text = `${name} ${description}`;
   const normalizedText = normalize(text);
   const safeId = `${source}-${index}-${code || name}`.replace(/[^\p{L}\p{N}]+/gu, "-").slice(0, 140);
   const channels = Number((String(text).match(/(\d+)\s*(?:канал|ch)/i) || [])[1]) || undefined;
   const ipRating = extractIpRating(text);
+  const safeName = cellText(name);
+  const safeBrand = cellText(brand) || safeName.split(/\s+/)[0];
+  const safeCode = cellText(code);
+  const safeProductUrl = normalizeProductUrl(productUrl, photo);
   return {
     id: safeId,
-    name: cellText(name),
-    brand: cellText(brand) || cellText(name).split(/\s+/)[0],
+    name: safeName,
+    brand: safeBrand,
     category: categories.includes(category) ? category : inferCategory(source, name, description),
     price,
     priceTiers,
     unit: normalize(unit).includes("м") && !normalize(unit).includes("комп") ? "м" : "шт",
-    code: cellText(code),
-    photo: cellText(photo),
+    code: safeCode,
+    photo: normalizePhoto(photo),
+    marketingPhotos: marketingPhotos.filter(isImageUrl).slice(0, 6),
+    productUrl: safeProductUrl,
+    photoQuery: photoSearchQuery({ name: safeName, brand: safeBrand, code: safeCode }),
+    photoStatus: normalizePhoto(photo) ? "ready" : "needs-search",
     resolution: extractResolution(text),
     lens: extractLens(text),
     megapixels: parseNumber((String(text).match(/(\d+(?:[,.]\d+)?)\s*(?:мп|mp)/i) || [])[1]),
@@ -967,6 +1091,53 @@ function makeProduct({ index, source, name, brand, category, price, priceTiers =
     specFilters: extractSpecFilters(text),
     tags: normalizedText.split(/\s+/).filter((word) => word.length > 2).slice(0, 8)
   };
+}
+
+function normalizeStoredProduct(product) {
+  const photo = normalizePhoto(product.photo);
+  const productUrl = product.productUrl || normalizeProductUrl(product.photo);
+  const category = product.category === "Прочее" ? "Разное" : product.category;
+  return {
+    ...product,
+    category,
+    photo,
+    productUrl,
+    photoQuery: product.photoQuery || photoSearchQuery(product),
+    photoStatus: photo ? product.photoStatus || "ready" : "needs-search"
+  };
+}
+
+async function requestPhotoEnrichment(products, { endpoint, apiKey = "", limit = 25 }) {
+  const batch = products
+    .filter((product) => !isImageUrl(product.photo))
+    .slice(0, Math.max(1, Number(limit) || 25));
+  if (!endpoint || !batch.length) return { count: 0, updates: new Map(), total: batch.length };
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+    },
+    body: JSON.stringify({
+      products: batch.map((product) => ({
+        id: product.id,
+        name: product.name,
+        brand: product.brand,
+        code: product.code,
+        productUrl: product.productUrl,
+        query: product.photoQuery || photoSearchQuery(product)
+      }))
+    })
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload?.message || `HTTP ${response.status}`);
+  const found = payload.photos || payload.items || payload.results || [];
+  const updates = new Map(
+    found
+      .map((item) => [item.id, item.photo || item.image || item.imageUrl])
+      .filter(([, photo]) => isImageUrl(photo))
+  );
+  return { count: updates.size, updates, total: batch.length };
 }
 
 async function blobToDataUrl(zipEntry, ext) {
@@ -997,6 +1168,39 @@ function resolveXlsxPath(baseDir, target) {
     else out.push(part);
   });
   return out.join("/");
+}
+
+function pushSheetImage(rowImages, row, image) {
+  const current = rowImages.get(row) || [];
+  current.push(image);
+  rowImages.set(row, current);
+}
+
+function pickImageFromColumn(sheetImages, rowIndex, photoCol) {
+  const candidates = [
+    ...(sheetImages.get(rowIndex) || []),
+    ...(sheetImages.get(rowIndex - 1) || [])
+  ].filter(Boolean);
+  if (!candidates.length) return { photo: "", marketingPhotos: [] };
+  if (typeof candidates[0] === "string") {
+    return { photo: candidates[0], marketingPhotos: candidates.slice(1) };
+  }
+  const sorted = [...candidates].sort((a, b) => {
+    if (photoCol >= 0) {
+      const aDistance = Math.abs((a.col ?? 999) - photoCol);
+      const bDistance = Math.abs((b.col ?? 999) - photoCol);
+      if (aDistance !== bDistance) return aDistance - bDistance;
+      if ((a.col ?? 999) !== (b.col ?? 999)) return (a.col ?? 999) - (b.col ?? 999);
+    }
+    return 0;
+  });
+  const main = photoCol >= 0
+    ? sorted.find((image) => image.col === photoCol) || sorted[0]
+    : sorted[0];
+  return {
+    photo: main?.url || "",
+    marketingPhotos: sorted.filter((image) => image !== main).map((image) => image.url).filter(Boolean)
+  };
 }
 
 async function extractWorkbookImages(buffer, workbook) {
@@ -1047,16 +1251,18 @@ async function extractWorkbookImages(buffer, workbook) {
 
       for (const anchor of anchors) {
         const rowNode = anchor.getElementsByTagName("xdr:row")[0] || anchor.getElementsByTagName("row")[0];
+        const colNode = anchor.getElementsByTagName("xdr:col")[0] || anchor.getElementsByTagName("col")[0];
         const blip = anchor.getElementsByTagName("a:blip")[0] || anchor.getElementsByTagName("blip")[0];
         const rid = blip?.getAttribute("r:embed") || blip?.getAttribute("embed");
         const target = drawingRels.get(rid);
         if (!rowNode || !target) continue;
         const row = Number(rowNode.textContent || 0);
+        const col = Number(colNode?.textContent || 0);
         const mediaPath = resolveXlsxPath(drawingDir, target);
         const mediaFile = zip.file(mediaPath);
         if (!mediaFile) continue;
         const ext = mediaPath.split(".").pop().toLowerCase();
-        if (!rowImages.has(row)) rowImages.set(row, await blobToDataUrl(mediaFile, ext));
+        pushSheetImage(rowImages, row, { col, url: await blobToDataUrl(mediaFile, ext) });
       }
     }
 
@@ -1126,6 +1332,7 @@ function parseSheetRows(rows, source, sheetName, sheetImages = new Map()) {
     const brand = cellText(row[brandCol]) || (source.toLowerCase().includes("optimus") ? "Optimus" : name.split(/\s+/)[0]);
     const unit = cellText(row[unitCol]);
     const code = cellText(row[codeCol]);
+    const pickedImages = pickImageFromColumn(sheetImages, rowIndex, photoCol);
 
     products.push(makeProduct({
       index: rowIndex,
@@ -1138,7 +1345,9 @@ function parseSheetRows(rows, source, sheetName, sheetImages = new Map()) {
       description,
       unit,
       code,
-      photo: sheetImages.get(rowIndex) || sheetImages.get(rowIndex - 1) || cellText(row[photoCol]) || cellText(row[linkCol])
+      photo: pickedImages.photo || cellText(row[photoCol]),
+      marketingPhotos: pickedImages.marketingPhotos,
+      productUrl: cellText(row[linkCol])
     }));
   }
   return products;
@@ -1199,7 +1408,7 @@ function Button({ children, tone = "blue", variant = "solid", className = "", ..
 
 function ProductVisual({ category, photo }) {
   const Icon = categoryIcons[category] || Camera;
-  if (photo && /^data:image|^https?:\/\//i.test(photo)) {
+  if (isImageUrl(photo)) {
     return (
       <div className="product-visual product-photo">
         <img src={photo} alt="" loading="lazy" />
@@ -1229,6 +1438,7 @@ function ProductCard({ product, onAdd, onSelect }) {
     <article className="product-card">
       <button className="product-open" type="button" onClick={() => onSelect(product)} aria-label={`Открыть ${product.name}`}>
         <ProductVisual category={product.category} photo={product.photo} />
+        {!!product.marketingPhotos?.length && <span className="marketing-count">+{product.marketingPhotos.length}</span>}
       </button>
       <div className="product-body">
         <div className="product-meta">
@@ -1441,11 +1651,16 @@ function Hero() {
 }
 
 function CategoryRail({ active, setActive, products }) {
+  const categoryCounts = products.reduce((acc, item) => {
+    acc[item.category] = (acc[item.category] || 0) + 1;
+    return acc;
+  }, {});
+  const visibleCategories = categories.slice(1).filter((category) => categoryCounts[category] > 0);
   return (
     <section className="category-rail">
-      {categories.slice(1).map((category) => {
+      {visibleCategories.map((category) => {
         const Icon = categoryIcons[category];
-        const count = products.filter((item) => item.category === category).length;
+        const count = categoryCounts[category] || 0;
         return (
           <button
             key={category}
@@ -1709,7 +1924,72 @@ function ManualProductForm({ onAdd }) {
   );
 }
 
-function AdminPage({ onImport, onAddProduct, productsCount, estimateCount, onResetLocalDb }) {
+function PhotoEnrichmentPanel({ products, onUpdateProducts }) {
+  const [endpoint, setEndpoint] = useState(() => localStorage.getItem("vsb39_photo_endpoint") || "");
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem("vsb39_photo_key") || "");
+  const [limit, setLimit] = useState(25);
+  const [status, setStatus] = useState("Готово к поиску фото");
+  const missing = products.filter((product) => !isImageUrl(product.photo));
+
+  async function enrichPhotos() {
+    const url = endpoint.trim();
+    if (!url) {
+      setStatus("Укажите endpoint backend/AI-сервиса для поиска фото.");
+      return;
+    }
+    localStorage.setItem("vsb39_photo_endpoint", url);
+    localStorage.setItem("vsb39_photo_key", apiKey.trim());
+    if (!missing.length) {
+      setStatus("У всех товаров уже есть фото.");
+      return;
+    }
+    setStatus(`Ищу фото для ${Math.min(missing.length, Math.max(1, Number(limit) || 25))} товаров...`);
+    try {
+      const { count, updates, total } = await requestPhotoEnrichment(missing, { endpoint: url, apiKey: apiKey.trim(), limit });
+      if (!count) {
+        setStatus("Сервис ответил, но не вернул подходящих image URL.");
+        return;
+      }
+      onUpdateProducts((current) => current.map((product) => (
+        updates.has(product.id)
+          ? { ...product, photo: updates.get(product.id), photoStatus: "ai-found" }
+          : product
+      )));
+      setStatus(`Добавлено фото: ${count} из ${total}`);
+    } catch (error) {
+      setStatus(`Не удалось найти фото: ${error.message}`);
+    }
+  }
+
+  return (
+    <section className="photo-enrichment">
+      <div className="section-head">
+        <div>
+          <h2>AI-фото товаров</h2>
+          <p>После парсинга товары без фото отправляются на ваш backend/AI-поиск. Ответ должен вернуть массив photos/items: id + photo/imageUrl.</p>
+        </div>
+      </div>
+      <div className="photo-enrichment-grid">
+        <label>
+          Endpoint поиска фото
+          <input value={endpoint} onChange={(event) => setEndpoint(event.target.value)} placeholder="https://api.vsb39.ru/enrich/photos" />
+        </label>
+        <label>
+          API key endpoint
+          <input value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="опционально" type="password" />
+        </label>
+        <label>
+          Лимит за запуск
+          <input value={limit} onChange={(event) => setLimit(event.target.value)} inputMode="numeric" />
+        </label>
+        <Button onClick={enrichPhotos}><BrainCircuit size={17} />Найти фото</Button>
+      </div>
+      <p className="photo-status">{status} · без фото: {missing.length} из {products.length}</p>
+    </section>
+  );
+}
+
+function AdminPage({ products, onImport, onAddProduct, onUpdateProducts, productsCount, estimateCount, onResetLocalDb }) {
   return (
     <main className="admin-page">
       <div className="admin-topbar">
@@ -1741,6 +2021,7 @@ function AdminPage({ onImport, onAddProduct, productsCount, estimateCount, onRes
         </div>
       </section>
       <ParserPanel onImport={onImport} />
+      <PhotoEnrichmentPanel products={products} onUpdateProducts={onUpdateProducts} />
       <ManualProductForm onAdd={onAddProduct} />
     </main>
   );
@@ -1765,7 +2046,7 @@ function HomePage({ products, setFilters }) {
                 <Icon size={26} />
                 <h3>{title}</h3>
                 <p>{text}</p>
-                <button onClick={() => { setFilters((current) => ({ ...current, category: title === "СКС и сети" ? "Сеть" : title === "Видеонаблюдение" ? "Камеры" : title })); navigateTo("catalog"); }}>
+                <button onClick={() => { setFilters((current) => withCategoryFilter(current, title === "СКС и сети" ? "Сеть" : title === "Видеонаблюдение" ? "Камеры" : title)); navigateTo("catalog"); }}>
                   Перейти к подбору <ArrowRight size={16} />
                 </button>
               </article>
@@ -1832,16 +2113,29 @@ function AboutPage() {
 }
 
 function Filters({ products, filters, setFilters }) {
-  const brands = ["Все", ...Array.from(new Set(products.map((item) => item.brand))).sort()];
-  const uniq = (key) => ["Все", ...Array.from(new Set(products.map((item) => item[key]).filter(Boolean).filter((value) => value !== "-"))).sort()];
-  const resolutions = uniq("resolution");
-  const lenses = uniq("lens");
-  const formFactors = uniq("formFactor");
-  const ipRatings = uniq("ipRating");
-  const codecs = uniq("codec");
-  const channels = ["Все", ...Array.from(new Set(products.map((item) => item.channels).filter(Boolean).map(String))).sort((a, b) => Number(a) - Number(b))];
-
+  const optionMap = useMemo(() => {
+    return selectFilterKeys.reduce((acc, key) => {
+      acc[key] = buildFilterOptions(products, filters, key);
+      return acc;
+    }, {});
+  }, [products, filters]);
+  const booleanCounts = useMemo(() => availableBooleanFilters(products, filters), [products, filters]);
   const update = (patch) => setFilters((current) => ({ ...current, ...patch }));
+  const updateCategory = (category) => setFilters((current) => withCategoryFilter(current, category));
+  const renderOptions = (key) => {
+    const options = optionMap[key] || [];
+    const value = filters[key];
+    const withCurrent = value && value !== "Все" && !options.some((item) => item.value === value)
+      ? [...options, { value, count: 0 }]
+      : options;
+    return [
+      <option key="Все" value="Все">Все</option>,
+      ...withCurrent.map((item) => <option key={item.value} value={item.value}>{item.value} ({item.count})</option>)
+    ];
+  };
+  const shouldShowSelect = (key) => (optionMap[key]?.length || 0) > 0 || filters[key] !== "Все";
+  const shouldShowCheck = (key) => Boolean(booleanCounts[key]) || filters[key];
+  const categoryOptions = optionMap.category?.length ? optionMap.category : categories.slice(1).map((category) => ({ value: category, count: 0 }));
 
   return (
     <aside className="filters">
@@ -1851,88 +2145,95 @@ function Filters({ products, filters, setFilters }) {
       </div>
       <label>
         Категория
-        <select value={filters.category} onChange={(event) => update({ category: event.target.value })}>
-          {categories.map((item) => <option key={item}>{item}</option>)}
+        <select value={filters.category} onChange={(event) => updateCategory(event.target.value)}>
+          <option value="Все">Все</option>
+          {categoryOptions.map((item) => <option key={item.value} value={item.value}>{item.value} ({item.count})</option>)}
         </select>
       </label>
-      <label>
+      {shouldShowSelect("brand") && <label>
         Бренд
         <select value={filters.brand} onChange={(event) => update({ brand: event.target.value })}>
-          {brands.map((item) => <option key={item}>{item}</option>)}
+          {renderOptions("brand")}
         </select>
-      </label>
-      <label>
+      </label>}
+      {shouldShowSelect("resolution") && <label>
         Разрешение
         <select value={filters.resolution} onChange={(event) => update({ resolution: event.target.value })}>
-          {resolutions.map((item) => <option key={item}>{item}</option>)}
+          {renderOptions("resolution")}
         </select>
-      </label>
-      <label>
+      </label>}
+      {shouldShowSelect("formFactor") && <label>
         Корпус
         <select value={filters.formFactor} onChange={(event) => update({ formFactor: event.target.value })}>
-          {formFactors.map((item) => <option key={item}>{item}</option>)}
+          {renderOptions("formFactor")}
         </select>
-      </label>
-      <label>
+      </label>}
+      {shouldShowSelect("lens") && <label>
         Объектив
         <select value={filters.lens} onChange={(event) => update({ lens: event.target.value })}>
-          {lenses.map((item) => <option key={item}>{item}</option>)}
+          {renderOptions("lens")}
         </select>
-      </label>
-      <label>
+      </label>}
+      {shouldShowSelect("ipRating") && <label>
         IP-защита
         <select value={filters.ipRating} onChange={(event) => update({ ipRating: event.target.value })}>
-          {ipRatings.map((item) => <option key={item}>{item}</option>)}
+          {renderOptions("ipRating")}
         </select>
-      </label>
-      <label>
+      </label>}
+      {shouldShowSelect("channels") && <label>
         Каналы
         <select value={filters.channels} onChange={(event) => update({ channels: event.target.value })}>
-          {channels.map((item) => <option key={item}>{item}</option>)}
+          {renderOptions("channels")}
         </select>
-      </label>
-      <label>
+      </label>}
+      {shouldShowSelect("codec") && <label>
         Кодек
         <select value={filters.codec} onChange={(event) => update({ codec: event.target.value })}>
-          {codecs.map((item) => <option key={item}>{item}</option>)}
+          {renderOptions("codec")}
         </select>
-      </label>
+      </label>}
+      {shouldShowSelect("spec") && <label>
+        Характеристика
+        <select value={filters.spec} onChange={(event) => update({ spec: event.target.value })}>
+          {renderOptions("spec")}
+        </select>
+      </label>}
       <div className="price-inputs">
         <label>Цена от<input value={filters.minPrice} onChange={(event) => update({ minPrice: event.target.value })} inputMode="numeric" /></label>
         <label>до<input value={filters.maxPrice} onChange={(event) => update({ maxPrice: event.target.value })} inputMode="numeric" /></label>
       </div>
-      <label className="check-label">
+      {shouldShowCheck("poe") && <label className="check-label">
         <input type="checkbox" checked={filters.poe} onChange={(event) => update({ poe: event.target.checked })} />
-        PoE питание
-      </label>
-      <label className="check-label">
+        PoE питание <span>{booleanCounts.poe || 0}</span>
+      </label>}
+      {shouldShowCheck("outdoor") && <label className="check-label">
         <input type="checkbox" checked={filters.outdoor} onChange={(event) => update({ outdoor: event.target.checked })} />
-        Уличное исполнение
-      </label>
-      <label className="check-label">
+        Уличное исполнение <span>{booleanCounts.outdoor || 0}</span>
+      </label>}
+      {shouldShowCheck("wdr") && <label className="check-label">
         <input type="checkbox" checked={filters.wdr} onChange={(event) => update({ wdr: event.target.checked })} />
-        WDR
-      </label>
-      <label className="check-label">
+        WDR <span>{booleanCounts.wdr || 0}</span>
+      </label>}
+      {shouldShowCheck("mic") && <label className="check-label">
         <input type="checkbox" checked={filters.mic} onChange={(event) => update({ mic: event.target.checked })} />
-        Микрофон
-      </label>
-      <label className="check-label">
+        Микрофон <span>{booleanCounts.mic || 0}</span>
+      </label>}
+      {shouldShowCheck("audio") && <label className="check-label">
         <input type="checkbox" checked={filters.audio} onChange={(event) => update({ audio: event.target.checked })} />
-        Аудио
-      </label>
-      <label className="check-label">
+        Аудио <span>{booleanCounts.audio || 0}</span>
+      </label>}
+      {shouldShowCheck("ik") && <label className="check-label">
         <input type="checkbox" checked={filters.ik} onChange={(event) => update({ ik: event.target.checked })} />
-        ИК-подсветка
-      </label>
-      <label className="check-label">
+        ИК-подсветка <span>{booleanCounts.ik || 0}</span>
+      </label>}
+      {shouldShowCheck("colorNight") && <label className="check-label">
         <input type="checkbox" checked={filters.colorNight} onChange={(event) => update({ colorNight: event.target.checked })} />
-        Цветная ночь
-      </label>
-      <label className="check-label">
+        Цветная ночь <span>{booleanCounts.colorNight || 0}</span>
+      </label>}
+      {shouldShowCheck("hasPhoto") && <label className="check-label">
         <input type="checkbox" checked={filters.hasPhoto} onChange={(event) => update({ hasPhoto: event.target.checked })} />
-        Есть фото
-      </label>
+        Есть фото <span>{booleanCounts.hasPhoto || 0}</span>
+      </label>}
       <Button variant="outline" onClick={() => setFilters(defaultFilters)}>Сбросить</Button>
     </aside>
   );
@@ -1947,6 +2248,7 @@ const defaultFilters = {
   ipRating: "Все",
   channels: "Все",
   codec: "Все",
+  spec: "Все",
   minPrice: "",
   maxPrice: "",
   poe: false,
@@ -1959,6 +2261,28 @@ const defaultFilters = {
   hasPhoto: false
 };
 
+function withCategoryFilter(current, category) {
+  return {
+    ...current,
+    category,
+    resolution: defaultFilters.resolution,
+    formFactor: defaultFilters.formFactor,
+    lens: defaultFilters.lens,
+    ipRating: defaultFilters.ipRating,
+    channels: defaultFilters.channels,
+    codec: defaultFilters.codec,
+    spec: defaultFilters.spec,
+    poe: defaultFilters.poe,
+    outdoor: defaultFilters.outdoor,
+    wdr: defaultFilters.wdr,
+    mic: defaultFilters.mic,
+    audio: defaultFilters.audio,
+    ik: defaultFilters.ik,
+    colorNight: defaultFilters.colorNight,
+    hasPhoto: defaultFilters.hasPhoto
+  };
+}
+
 function Catalog({ products, query, setQuery, filters, setFilters, selected, setSelected, onAdd }) {
   const ranked = useMemo(() => {
     return products
@@ -1968,7 +2292,7 @@ function Catalog({ products, query, setQuery, filters, setFilters, selected, set
   }, [products, query, filters]);
 
   const hasSearchOrFilters = query || Object.entries(filters).some(([key, value]) => {
-    if (["category", "brand", "resolution", "formFactor", "lens", "ipRating", "channels", "codec"].includes(key)) return value !== "Все";
+    if (["category", "brand", "resolution", "formFactor", "lens", "ipRating", "channels", "codec", "spec"].includes(key)) return value !== "Все";
     return Boolean(value);
   });
   const visible = hasSearchOrFilters
@@ -2000,7 +2324,7 @@ function Catalog({ products, query, setQuery, filters, setFilters, selected, set
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Например: 4MP PoE уличная камера" />
         </div>
       </div>
-      <CategoryRail active={filters.category} setActive={(category) => setFilters((current) => ({ ...current, category }))} products={products} />
+      <CategoryRail active={filters.category} setActive={(category) => setFilters((current) => withCategoryFilter(current, category))} products={products} />
       <div className="catalog-layout">
         <Filters products={products} filters={filters} setFilters={setFilters} />
         <div className="catalog-results">
@@ -2037,7 +2361,7 @@ function Catalog({ products, query, setQuery, filters, setFilters, selected, set
             ) : (
               <>
                 <span className="tag blue">нет результата</span>
-                <ProductVisual category="Прочее" />
+                <ProductVisual category="Разное" />
                 <h3>Ничего не найдено</h3>
                 <p>Ослабьте фильтры или измените запрос, чтобы увидеть подходящее оборудование.</p>
               </>
@@ -2374,10 +2698,10 @@ function Footer() {
 
 function App() {
   const [route, setRoute] = useState(routeFromLocation);
-  const [products, setProducts] = useState(seedEquipment);
+  const [products, setProducts] = useState([]);
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState(defaultFilters);
-  const [selected, setSelected] = useState(seedEquipment[0]);
+  const [selected, setSelected] = useState(null);
   const [estimateItems, setEstimateItems] = useState([]);
   const [dbReady, setDbReady] = useState(false);
 
@@ -2389,18 +2713,45 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      idbGet("products", seedEquipment),
-      idbGet("estimateItems", [])
-    ]).then(([storedProducts, storedEstimate]) => {
+    async function hydrate() {
+      const [storedProducts, storedEstimate, storedVersion] = await Promise.all([
+        idbGet("products", []),
+        idbGet("estimateItems", []),
+        idbGet("catalogVersion", "")
+      ]);
       if (cancelled) return;
+
+      if (storedVersion !== CATALOG_VERSION) {
+        try {
+          const defaultProducts = await loadDefaultCatalog();
+          if (cancelled) return;
+          setProducts(defaultProducts);
+          setSelected(defaultProducts[0] || null);
+          setEstimateItems([]);
+          await Promise.all([
+            idbSet("products", defaultProducts),
+            idbSet("estimateItems", []),
+            idbSet("catalogVersion", CATALOG_VERSION)
+          ]);
+        } catch {
+          const normalizedProducts = Array.isArray(storedProducts) ? storedProducts.map(normalizeStoredProduct) : [];
+          setProducts(normalizedProducts);
+          setSelected(normalizedProducts[0] || null);
+          if (Array.isArray(storedEstimate)) setEstimateItems(storedEstimate);
+        }
+        setDbReady(true);
+        return;
+      }
+
       if (Array.isArray(storedProducts) && storedProducts.length) {
-        setProducts(storedProducts);
-        setSelected(storedProducts[0]);
+        const normalizedProducts = storedProducts.map(normalizeStoredProduct);
+        setProducts(normalizedProducts);
+        setSelected(normalizedProducts[0] || null);
       }
       if (Array.isArray(storedEstimate)) setEstimateItems(storedEstimate);
       setDbReady(true);
-    });
+    }
+    hydrate();
     return () => {
       cancelled = true;
     };
@@ -2430,30 +2781,58 @@ function App() {
 
   function importProducts(imported) {
     if (!imported.length) return;
+    const normalizedImported = imported.map(normalizeStoredProduct);
     setProducts((current) => {
-      const existing = new Set(current.map((item) => item.id));
-      const next = [...current, ...imported.filter((item) => !existing.has(item.id))];
+      const incoming = new Map(normalizedImported.map((item) => [item.id, item]));
+      const currentIds = new Set(current.map((item) => item.id));
+      const updatedCurrent = current.map((item) => incoming.get(item.id) || item);
+      const appended = normalizedImported.filter((item) => !currentIds.has(item.id));
+      const next = [...updatedCurrent, ...appended];
       idbSet("products", next);
       return next;
     });
-    setSelected(imported[0]);
+    setSelected(normalizedImported[0]);
+    const endpoint = localStorage.getItem("vsb39_photo_endpoint") || "";
+    const apiKey = localStorage.getItem("vsb39_photo_key") || "";
+    if (endpoint) {
+      requestPhotoEnrichment(normalizedImported, { endpoint, apiKey, limit: 50 })
+        .then(({ updates }) => {
+          if (!updates.size) return;
+          updateProducts((current) => current.map((product) => (
+            updates.has(product.id)
+              ? { ...product, photo: updates.get(product.id), photoStatus: "ai-found" }
+              : product
+          )));
+        })
+        .catch(() => {});
+    }
   }
 
   function addProduct(product) {
     setProducts((current) => {
-      const next = [product, ...current.filter((item) => item.id !== product.id)];
+      const normalizedProduct = normalizeStoredProduct(product);
+      const next = [normalizedProduct, ...current.filter((item) => item.id !== product.id)];
       idbSet("products", next);
       return next;
     });
-    setSelected(product);
+    setSelected(normalizeStoredProduct(product));
+  }
+
+  function updateProducts(updater) {
+    setProducts((current) => {
+      const next = typeof updater === "function" ? updater(current) : updater;
+      idbSet("products", next);
+      return next;
+    });
   }
 
   async function resetLocalDb() {
     await idbDelete("products");
     await idbDelete("estimateItems");
-    setProducts(seedEquipment);
+    await idbDelete("catalogVersion");
+    setProducts([]);
     setEstimateItems([]);
-    setSelected(seedEquipment[0]);
+    setSelected(null);
   }
 
   if (!dbReady) {
@@ -2472,8 +2851,10 @@ function App() {
     return <>
       <SeoManager route={route} />
       <AdminPage
+        products={products}
         onImport={importProducts}
         onAddProduct={addProduct}
+        onUpdateProducts={updateProducts}
         productsCount={products.length}
         estimateCount={estimateItems.length}
         onResetLocalDb={resetLocalDb}

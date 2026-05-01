@@ -967,6 +967,13 @@ textarea {
   height: 17px;
 }
 
+.check-label span {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .catalog-results {
   min-width: 0;
 }
@@ -1013,11 +1020,24 @@ textarea {
 }
 
 .product-open {
+  position: relative;
   width: 100%;
   border: 0;
   padding: 0;
   background: transparent;
   cursor: pointer;
+}
+
+.marketing-count {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: rgba(17, 24, 39, 0.82);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .product-visual {
@@ -1309,7 +1329,8 @@ textarea {
 }
 
 .ops-card,
-.manual-form {
+.manual-form,
+.photo-enrichment {
   border: 1px solid var(--line);
   border-radius: 22px;
   background: #fff;
@@ -1366,6 +1387,37 @@ textarea {
 
 .manual-submit {
   grid-column: 1 / -1;
+}
+
+.photo-enrichment {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+}
+
+.photo-enrichment .section-head {
+  padding: 0;
+}
+
+.photo-enrichment-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.4fr) minmax(200px, 0.9fr) 130px auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.photo-enrichment-grid label {
+  display: grid;
+  gap: 8px;
+  color: var(--sub);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.photo-status {
+  margin: 0;
+  color: var(--sub);
+  font-size: 13px;
 }
 
 .docs-link {
@@ -1988,6 +2040,7 @@ textarea {
   .model-board,
   .ops-section,
   .manual-form,
+  .photo-enrichment-grid,
   .category-rail,
   .catalog-layout,
   .product-grid,
