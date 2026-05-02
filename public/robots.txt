@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+
+Sitemap: https://vsb39.ru/sitemap.xml
+
+Host: https://vsb39.ru

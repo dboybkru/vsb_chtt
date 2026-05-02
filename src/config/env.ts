@@ -1,0 +1,6 @@
+export const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://vsb39.ru'
+export const SITE_NAME = import.meta.env.VITE_SITE_NAME || 'ВСБ39'
+export const GA_ID = import.meta.env.VITE_GA_ID || ''
+export const YM_ID = import.meta.env.VITE_YM_ID || ''
+export const VSEGPT_PROXY_URL = import.meta.env.VITE_VSEGPT_PROXY_URL || '/api/vsegpt'
+export const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN || ''

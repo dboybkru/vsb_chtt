@@ -1,7 +1,29 @@
+# Dependencies
 node_modules/
+*.log
+
+# Build
 dist/
-output/
-vite.log
-vsegpt-*.html
+*.local
+
+# Environment
 .env
-.env.*
+!.env.example
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+
+# Cache
+.npm/
+.eslintcache
