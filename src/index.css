@@ -4,72 +4,108 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    --deep-navy: #0A0E1A;
+    --midnight: #0F1629;
+    --charcoal: #1A1F35;
+    --guard-green: #00D084;
+    --guard-green-dim: #00A868;
+    --aurora-teal: #00E5C2;
+    --caution-amber: #FFB800;
+    --pure-white: #FFFFFF;
+    --off-white: #F0F2F5;
+    --text-muted: #8B94A8;
+    --text-body: #A8B0C0;
+    --text-dark: #0A0E1A;
+    --text-dark-secondary: #4A5568;
+    --surface-glass: rgba(26, 31, 53, 0.6);
+    --surface-card: rgba(26, 31, 53, 0.85);
+    --border-glow: rgba(0, 208, 132, 0.3);
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-light: rgba(10, 14, 26, 0.1);
+
+    --background: 222 47% 5%;
+    --foreground: 0 0% 100%;
+    --card: 225 29% 15%;
+    --card-foreground: 0 0% 100%;
+    --popover: 225 29% 15%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 155 100% 41%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 225 29% 15%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 225 29% 15%;
+    --muted-foreground: 218 14% 60%;
+    --accent: 170 100% 45%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
+    --border: 225 29% 15%;
+    --input: 225 29% 15%;
+    --ring: 155 100% 41%;
     --radius: 0.625rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 222 47% 5%;
+    --sidebar-foreground: 218 14% 60%;
+    --sidebar-primary: 155 100% 41%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 225 29% 15%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 225 29% 15%;
+    --sidebar-ring: 155 100% 41%;
   }
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-deep-navy text-pure-white font-body antialiased;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
+@layer components {
+  .gradient-guard {
+    background: linear-gradient(135deg, #00D084 0%, #00E5C2 100%);
   }
-  body {
-    @apply bg-background text-foreground;
+
+  .gradient-guard-text {
+    background: linear-gradient(135deg, #00D084 0%, #00E5C2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .glass-panel {
+    background: var(--surface-glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .glass-card {
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .section-label {
+    @apply text-xs font-medium uppercase tracking-[0.05em] text-guard-green flex items-center gap-3;
+  }
+
+  .section-label::before {
+    content: '';
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: #00D084;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
   }
 }

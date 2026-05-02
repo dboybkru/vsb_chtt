@@ -5,6 +5,19 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        'deep-navy': '#0A0E1A',
+        'midnight': '#0F1629',
+        'charcoal': '#1A1F35',
+        'guard-green': '#00D084',
+        'guard-green-dim': '#00A868',
+        'aurora-teal': '#00E5C2',
+        'caution-amber': '#FFB800',
+        'pure-white': '#FFFFFF',
+        'off-white': '#F0F2F5',
+        'text-muted': '#8B94A8',
+        'text-body': '#A8B0C0',
+        'text-dark': '#0A0E1A',
+        'text-dark-secondary': '#4A5568',
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -49,6 +62,11 @@ module.exports = {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
+      fontFamily: {
+        display: ['"Space Grotesk"', 'Segoe UI', 'system-ui', 'sans-serif'],
+        body: ['Inter', 'Segoe UI', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+      },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",
         lg: "var(--radius)",
@@ -72,11 +90,33 @@ module.exports = {
           "0%,70%,100%": { opacity: "1" },
           "20%,50%": { opacity: "0" },
         },
+        "pulse-glow": {
+          "0%, 100%": { 
+            transform: "scale(1)",
+            boxShadow: "0 0 20px rgba(0,208,132,0.3)"
+          },
+          "50%": { 
+            transform: "scale(1.1)",
+            boxShadow: "0 0 40px rgba(0,208,132,0.6)"
+          },
+        },
+        "cta-pulse": {
+          "0%": { boxShadow: "0 0 0 0 rgba(0,208,132,0.4)" },
+          "70%": { boxShadow: "0 0 0 12px rgba(0,208,132,0)" },
+          "100%": { boxShadow: "0 0 0 0 rgba(0,208,132,0)" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-6px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "caret-blink": "caret-blink 1.25s ease-out infinite",
+        "pulse-glow": "pulse-glow 2s infinite ease-in-out",
+        "cta-pulse": "cta-pulse 2s infinite",
+        "float": "float 3s infinite ease-in-out",
       },
     },
   },
