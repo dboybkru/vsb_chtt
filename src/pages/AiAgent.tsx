@@ -3,8 +3,9 @@ import { motion } from 'framer-motion'
 import { Video, Calculator, Headset, MessageSquare } from 'lucide-react'
 import AIOrb from '@/components/ai/AIOrb'
 import ChatInterface from '@/components/ai/ChatInterface'
+import CapabilitiesGrid from '@/components/ai/CapabilitiesGrid'
+import AnalyticsDashboard from '@/components/ai/AnalyticsDashboard'
 import CTASection from '@/components/ai/CTASection'
-import { EstimateProvider } from '@/components/estimate/EstimateContext'
 
 const fullIntroText = 'Я ваш эксперт по системам безопасности. Помогу подобрать оборудование, рассчитать смету, ответить на технические вопросы и найти лучшее решение для вашего объекта.'
 
@@ -14,12 +15,10 @@ export default function AiAgent() {
 
   const scrollToChat = useCallback(() => {
     const el = document.getElementById('ai-chat-section')
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
-  // Typing effect — increased interval to 50ms for better performance
+  // Typing effect
   useEffect(() => {
     let i = 0
     const timer = setInterval(() => {
@@ -29,7 +28,7 @@ export default function AiAgent() {
       } else {
         clearInterval(timer)
       }
-    }, 50)
+    }, 30)
     return () => clearInterval(timer)
   }, [])
 
@@ -52,8 +51,7 @@ export default function AiAgent() {
     <main className="bg-deep-navy">
       {/* Section 1: AI Hero */}
       <section
-        className="relative flex flex-col items-center justify-center pt-[120px] pb-16 overflow-hidden"
-        style={{ minHeight: 'min(80vh, 700px)' }}
+        className="relative min-h-[80vh] flex flex-col items-center justify-center pt-[120px] pb-16 overflow-hidden"
       >
         {/* Radial glow behind orb */}
         <div
@@ -142,10 +140,14 @@ export default function AiAgent() {
 
       {/* Section 2: Chat Interface */}
       <div id="ai-chat-section">
-        <EstimateProvider>
-          <ChatInterface />
-        </EstimateProvider>
+        <ChatInterface />
       </div>
+
+      {/* Section 3: Capabilities Grid */}
+      <CapabilitiesGrid />
+
+      {/* Section 4: Analytics Dashboard */}
+      <AnalyticsDashboard />
 
       {/* Section 5: CTA */}
       <CTASection />
