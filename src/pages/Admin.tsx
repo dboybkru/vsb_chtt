@@ -1,14 +1,47 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import type { AdminSection } from '@/components/admin/AdminSidebar'
+import AdminSidebar from '@/components/admin/AdminSidebar'
+import AdminTopBar from '@/components/admin/AdminTopBar'
+import DashboardOverview from '@/components/admin/DashboardOverview'
+import PriceUpload from '@/components/admin/PriceUpload'
+import AISettings from '@/components/admin/AISettings'
+import SEOSettings from '@/components/admin/SEOSettings'
+import CatalogManagement from '@/components/admin/CatalogManagement'
+import EstimatesHistory from '@/components/admin/EstimatesHistory'
+import GeneralSettings from '@/components/admin/GeneralSettings'
 
 export default function Admin() {
+  const [activeSection, setActiveSection] = useState<AdminSection>('overview')
+
+  const renderContent = () => {
+    switch (activeSection) {
+      case 'overview':
+        return <DashboardOverview />
+      case 'prices':
+        return <PriceUpload />
+      case 'ai':
+        return <AISettings />
+      case 'catalog':
+        return <CatalogManagement />
+      case 'estimates':
+        return <EstimatesHistory />
+      case 'seo':
+        return <SEOSettings />
+      case 'settings':
+        return <GeneralSettings />
+      default:
+        return <DashboardOverview />
+    }
+  }
+
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center pt-[72px]">
-      <div className="text-center">
-        <h1 className="font-display text-4xl font-bold text-pure-white mb-4">Админ-панель</h1>
-        <p className="text-text-body mb-6">Раздел в разработке</p>
-        <Link to="/" className="text-guard-green hover:underline">
-          Вернуться на главную
-        </Link>
+    <div className="min-h-[calc(100dvh-72px)] bg-midnight flex overflow-hidden">
+      <AdminSidebar active={activeSection} onChange={setActiveSection} />
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <AdminTopBar active={activeSection} />
+        <div className="flex-1 overflow-y-auto">
+          {renderContent()}
+        </div>
       </div>
     </div>
   )
