@@ -63,14 +63,14 @@ export default function ObjectParams() {
               ) : (
                 <input
                   type={field.type}
-                  value={params[field.key] || ''}
+                  value={(params as any)[field.key] || ''}
                   onChange={(e) =>
                     setParams({
                       [field.key]:
                         field.type === 'number'
                           ? parseInt(e.target.value) || 0
                           : e.target.value,
-                    })
+                    } as any)
                   }
                   className="w-full bg-charcoal border border-border-subtle rounded-lg px-4 py-3 text-pure-white focus:border-guard-green focus:ring-2 focus:ring-guard-green/20 outline-none transition-all"
                 />

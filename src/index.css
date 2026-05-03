@@ -109,3 +109,13 @@
     text-wrap: balance;
   }
 }
+
+.markdown-content strong {
+  color: #F8FAFC;
+}
+.markdown-content h1, .markdown-content h2, .markdown-content h3 {
+  color: #F8FAFC;
+}
+.markdown-content li {
+  margin-bottom: 0.25rem;
+}

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Phone,
@@ -63,14 +62,14 @@ const emergencyContacts = [
   {
     icon: Truck,
     heading: 'Выездная бригада',
-    phone: '+7 (900) 123-45-67',
+    phone: '',
     desc: 'Оперативный выезд по Калининграду в течение 2 часов.',
     color: 'guard-green',
   },
   {
     icon: ShieldAlert,
     heading: 'Пульт охраны',
-    phone: '+7 (4012) 00-00-00',
+    phone: '',
     desc: 'Для клиентов с подключённой охранной сигнализацией.',
     color: 'caution-amber',
   },
@@ -375,7 +374,7 @@ export default function Contact() {
               <div className="flex items-start gap-3">
                 <MapPin size={20} className="text-guard-green mt-0.5 shrink-0" />
                 <p className="text-base text-text-dark">
-                  г. Калининград, ул. Примерная, 123, офис 45
+                  г. Калининград
                 </p>
               </div>
 
@@ -388,9 +387,7 @@ export default function Contact() {
                   >
                     +7 (4012) 39-39-39
                   </a>
-                  <span className="text-sm text-text-dark-secondary">
-                    +7 (900) 123-45-67
-                  </span>
+
                 </div>
               </div>
 
@@ -482,7 +479,7 @@ export default function Contact() {
         >
           <iframe
             title="VSB39 Office Location"
-            src="https://www.openstreetmap.org/export/embed.html?bbox=20.4%2C54.68%2C20.55%2C54.74&layer=mapnik&marker=54.71%2C20.475"
+            src="https://www.openstreetmap.org/export/embed.html?bbox=20.4%2C54.68%2C20.55%2C54.74&layer=mapnik"
             className="w-full h-full border-0 grayscale-[50%]"
             loading="lazy"
           />
@@ -491,7 +488,7 @@ export default function Contact() {
               VSB39 — Ваша Система Безопасности
             </p>
             <p className="text-xs text-text-muted">
-              г. Калининград, ул. Примерная, 123
+              г. Калининград
             </p>
           </div>
         </motion.div>
@@ -554,12 +551,14 @@ export default function Contact() {
                 <h3 className="font-display text-[20px] font-medium text-pure-white mb-2">
                   {ec.heading}
                 </h3>
-                <a
-                  href={`tel:${ec.phone.replace(/\D/g, '')}`}
-                  className={`font-mono text-base font-medium block mb-2 ${ec.color === 'caution-amber' ? 'text-caution-amber' : 'text-guard-green'}`}
-                >
-                  {ec.phone}
-                </a>
+                {ec.phone && (
+                  <a
+                    href={`tel:${ec.phone.replace(/\D/g, '')}`}
+                    className={`font-mono text-base font-medium block mb-2 ${ec.color === 'caution-amber' ? 'text-caution-amber' : 'text-guard-green'}`}
+                  >
+                    {ec.phone}
+                  </a>
+                )}
                 <p className="text-sm text-text-muted">{ec.desc}</p>
               </motion.div>
             ))}

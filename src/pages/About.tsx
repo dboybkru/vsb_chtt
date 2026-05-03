@@ -210,7 +210,7 @@ export default function About() {
             />
 
             <div className="space-y-12">
-              {milestones.map((m, i) => (
+              {milestones.map((m, _i) => (
                 <motion.div
                   key={m.year}
                   initial="hidden"

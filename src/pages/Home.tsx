@@ -225,7 +225,7 @@ export default function Home() {
         <HeroGrid3D />
         <ParticleCanvas />
 
-        <div className="relative z-10 max-w-[720px] px-[8vw] pt-[120px] pb-16">
+        <div className="relative z-10 max-w-[900px] px-[6vw] pt-[120px] pb-16">
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
@@ -239,8 +239,8 @@ export default function Home() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
-            className="font-display font-bold leading-[0.95] tracking-[-0.02em]"
-            style={{ fontSize: 'clamp(56px, 8vw, 120px)' }}
+            className="font-display font-bold leading-[0.95] tracking-[-0.02em] break-words"
+            style={{ fontSize: 'clamp(48px, 7vw, 88px)' }}
           >
             <span className="text-pure-white block">Защитим ваш бизнес</span>
             <span className="gradient-guard-text block">на уровне технологий</span>
@@ -266,7 +266,7 @@ export default function Home() {
               className="inline-flex items-center gap-2 px-8 py-3.5 rounded-[10px] gradient-guard text-white font-semibold text-sm hover:brightness-110 transition-all"
             >
               <Calculator size={16} />
-              Рассчитать смету
+              Предварительный расчет
             </Link>
             <Link
               to="/catalog"
@@ -634,7 +634,7 @@ export default function Home() {
                 className="inline-flex items-center gap-2 px-10 py-4 rounded-xl gradient-guard text-white font-medium text-lg animate-cta-pulse hover:brightness-110 transition-all"
               >
                 <Calculator size={18} />
-                Рассчитать смету
+                Предварительный расчет
               </Link>
               <a
                 href="tel:+74012393939"

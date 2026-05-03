@@ -1,6 +1,6 @@
 import type { FC } from 'react'
 import { useState } from 'react'
-import { Eye, EyeOff, Check, Copy } from 'lucide-react'
+import { Eye, EyeOff, Check, Copy, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,6 +23,13 @@ const tabs: { id: AITab; label: string }[] = [
   { id: 'prompts', label: 'Промпты' },
   { id: 'integrations', label: 'Интеграции' },
   { id: 'logs', label: 'Логи' },
+]
+
+const models = [
+  { id: 'openai/gpt-4o', name: 'GPT-4o (рекомендуется)', desc: 'Хорошее качество, function calling' },
+  { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', desc: 'Быстрая, дешевая' },
+  { id: 'anthropic/claude-sonnet-4', name: 'Claude Sonnet 4', desc: 'Высокое качество' },
+  { id: 'deepseek/deepseek-chat', name: 'DeepSeek Chat', desc: 'Бюджетная' },
 ]
 
 const promptTemplates = [
@@ -60,18 +67,21 @@ const promptTemplates = [
 
 const AISettings: FC = () => {
   const [activeTab, setActiveTab] = useState<AITab>('general')
-  const [model, setModel] = useState('gpt-4o')
-  const [temperature, setTemperature] = useState([0.7])
-  const [maxTokens, setMaxTokens] = useState('2048')
+  const [model, setModel] = useState(() => localStorage.getItem('vsegpt-model') || 'openai/gpt-4o')
+  const [temperature, setTemperature] = useState(() => [
+    Number(localStorage.getItem('vsegpt-temperature') || '0.7')
+  ])
+  const [maxTokens, setMaxTokens] = useState(() => localStorage.getItem('vsegpt-max-tokens') || '2048')
   const [systemPersonality, setSystemPersonality] = useState(
     'Вы эксперт по системам безопасности компании VSB39. Ваши знания охватывают видеонаблюдение, СКУД, охранно-пожарную сигнализацию и структурированные кабельные системы. Вы отвечаете профессионально, точно и по существу.'
   )
   const [welcomeMessage, setWelcomeMessage] = useState(
     'Здравствуйте! Я ИИ-агент VSB39. Задайте вопрос о системах безопасности — я помогу с подбором оборудования, расчётом сметы или технической консультацией.'
   )
-  const [apiKey, setApiKey] = useState('sk-••••••••••••••••••••••••••••••')
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('vsegpt-api-key') || '')
   const [showKey, setShowKey] = useState(false)
-  const [keyStatus, setKeyStatus] = useState<'ok' | 'error'>('ok')
+  const [keyStatus, setKeyStatus] = useState<'ok' | 'error' | 'idle'>('idle')
+  const [testing, setTesting] = useState(false)
   const [prompts, setPrompts] = useState(promptTemplates)
   const [saveToast, setSaveToast] = useState(false)
 
@@ -80,8 +90,44 @@ const AISettings: FC = () => {
   }
 
   const handleSave = () => {
+    localStorage.setItem('vsegpt-model', model)
+    localStorage.setItem('vsegpt-temperature', String(temperature[0]))
+    localStorage.setItem('vsegpt-max-tokens', maxTokens)
+    localStorage.setItem('vsegpt-api-key', apiKey)
     setSaveToast(true)
     setTimeout(() => setSaveToast(false), 2000)
+  }
+
+  const testApiKey = async () => {
+    if (!apiKey.trim()) {
+      setKeyStatus('error')
+      return
+    }
+    setTesting(true)
+    setKeyStatus('idle')
+    try {
+      const resp = await fetch('https://api.vsegpt.ru/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: model || 'openai/gpt-4o',
+          messages: [{ role: 'user', content: 'Hi' }],
+          max_tokens: 5,
+        }),
+      })
+      if (resp.ok) {
+        setKeyStatus('ok')
+      } else {
+        setKeyStatus('error')
+      }
+    } catch {
+      setKeyStatus('error')
+    } finally {
+      setTesting(false)
+    }
   }
 
   return (
@@ -118,17 +164,25 @@ const AISettings: FC = () => {
             <div className="space-y-6 animate-fadeIn">
               <div className="bg-charcoal rounded-xl border border-border-subtle p-6 space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-sm text-text-body">AI Model</Label>
+                  <Label className="text-sm text-text-body">Модель ИИ (VseGPT)</Label>
                   <Select value={model} onValueChange={setModel}>
                     <SelectTrigger className="bg-midnight border-border-subtle text-pure-white w-full max-w-md">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-charcoal border-border-subtle">
-                      <SelectItem value="gpt-4o">GPT-4o</SelectItem>
-                      <SelectItem value="gpt-4o-mini">GPT-4o-mini</SelectItem>
-                      <SelectItem value="claude-3.5-sonnet">Claude 3.5 Sonnet</SelectItem>
+                      {models.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          <div className="flex flex-col">
+                            <span className="text-sm">{m.name}</span>
+                            <span className="text-xs text-text-muted">{m.desc}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-text-muted mt-1">
+                    API: https://api.vsegpt.ru/v1
+                  </p>
                 </div>
 
                 <div className="space-y-3">
@@ -190,13 +244,14 @@ const AISettings: FC = () => {
             <div className="space-y-6 animate-fadeIn">
               <div className="bg-charcoal rounded-xl border border-border-subtle p-6 space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-sm text-text-body">OpenAI API Key</Label>
+                  <Label className="text-sm text-text-body">VseGPT API Key</Label>
                   <div className="flex gap-2">
                     <div className="relative flex-1 max-w-md">
                       <Input
                         type={showKey ? 'text' : 'password'}
                         value={apiKey}
                         onChange={(e) => setApiKey(e.target.value)}
+                        placeholder="Bearer токен из личного кабинета vsegpt.ru"
                         className="bg-midnight border-border-subtle text-pure-white pr-10"
                       />
                       <button
@@ -214,24 +269,40 @@ const AISettings: FC = () => {
                       <Copy size={14} />
                     </Button>
                     <Button
-                      onClick={() => setKeyStatus('ok')}
-                      className="gradient-guard text-white hover:brightness-110"
+                      onClick={testApiKey}
+                      disabled={testing || !apiKey.trim()}
+                      className="gradient-guard text-white hover:brightness-110 disabled:opacity-50"
                     >
-                      Проверить
+                      {testing ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                      <span className="ml-1">Проверить</span>
                     </Button>
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <div
                       className={`w-2 h-2 rounded-full ${
-                        keyStatus === 'ok' ? 'bg-guard-green' : 'bg-red-500'
+                        keyStatus === 'ok'
+                          ? 'bg-guard-green'
+                          : keyStatus === 'error'
+                            ? 'bg-red-500'
+                            : 'bg-text-muted'
                       }`}
                     />
                     <span className="text-sm text-text-body">
-                      {keyStatus === 'ok' ? 'Работает' : 'Ошибка'}
+                      {keyStatus === 'ok'
+                        ? 'Работает'
+                        : keyStatus === 'error'
+                          ? 'Ошибка соединения или неверный ключ'
+                          : 'Не проверено'}
                     </span>
                   </div>
+                  {keyStatus === 'error' && (
+                    <div className="flex items-center gap-2 mt-2 text-xs text-red-400">
+                      <AlertCircle size={14} />
+                      <span>Проверьте ключ в личном кабинете vsegpt.ru → API-ключи</span>
+                    </div>
+                  )}
                   <p className="text-xs text-text-muted">
-                    Лимит: 1 000 000 токенов / месяц. Использовано: 234 567.
+                    Ключ хранится локально в браузере (localStorage). Для продакшена рекомендуется перенести на бэкенд.
                   </p>
                 </div>
               </div>

@@ -35,22 +35,28 @@ export default function EquipmentTable() {
             </Link>
           </motion.div>
         ) : (
-          <table className="w-full min-w-[640px]">
+          <table className="w-full min-w-[720px]">
             <thead>
               <tr className="bg-charcoal rounded-t-lg">
-                <th className="text-left text-xs font-medium uppercase tracking-[0.05em] text-text-muted px-4 py-3 rounded-tl-lg">
-                  Товар
+                <th className="text-left text-xs font-medium uppercase tracking-[0.05em] text-text-muted px-4 py-3 rounded-tl-lg w-12">
+                  №
                 </th>
                 <th className="text-left text-xs font-medium uppercase tracking-[0.05em] text-text-muted px-4 py-3">
+                  Наименование
+                </th>
+                <th className="text-left text-xs font-medium uppercase tracking-[0.05em] text-text-muted px-4 py-3 w-28">
                   Кол-во
                 </th>
-                <th className="text-left text-xs font-medium uppercase tracking-[0.05em] text-text-muted px-4 py-3">
+                <th className="text-left text-xs font-medium uppercase tracking-[0.05em] text-text-muted px-4 py-3 w-20">
+                  Ед.изм.
+                </th>
+                <th className="text-left text-xs font-medium uppercase tracking-[0.05em] text-text-muted px-4 py-3 w-32">
                   Цена
                 </th>
-                <th className="text-left text-xs font-medium uppercase tracking-[0.05em] text-text-muted px-4 py-3">
+                <th className="text-left text-xs font-medium uppercase tracking-[0.05em] text-text-muted px-4 py-3 w-32">
                   Сумма
                 </th>
-                <th className="text-right text-xs font-medium uppercase tracking-[0.05em] text-text-muted px-4 py-3 rounded-tr-lg">
+                <th className="text-right text-xs font-medium uppercase tracking-[0.05em] text-text-muted px-4 py-3 rounded-tr-lg w-20">
                   Действия
                 </th>
               </tr>
@@ -66,6 +72,9 @@ export default function EquipmentTable() {
                     transition={{ duration: 0.4, delay: index * 0.06 }}
                     className="group hover:bg-charcoal/40 transition-colors"
                   >
+                    <td className="px-4 py-4 text-text-muted font-mono text-sm">
+                      {index + 1}
+                    </td>
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-4">
                         <div className="w-16 h-16 rounded-lg overflow-hidden bg-charcoal shrink-0 border border-border-subtle">
@@ -112,6 +121,9 @@ export default function EquipmentTable() {
                       </div>
                     </td>
                     <td className="px-4 py-4">
+                      <span className="text-sm text-text-body">{item.unit || 'шт.'}</span>
+                    </td>
+                    <td className="px-4 py-4">
                       <span className="font-mono text-base text-pure-white">
                         {item.price.toLocaleString('ru-RU')} ₽
                       </span>
@@ -144,7 +156,7 @@ export default function EquipmentTable() {
             </tbody>
             <tfoot>
               <tr className="border-t border-border-subtle">
-                <td colSpan={3} className="px-4 py-4 text-right text-sm text-text-muted">
+                <td colSpan={5} className="px-4 py-4 text-right text-sm text-text-muted">
                   Оборудование:
                 </td>
                 <td className="px-4 py-4">

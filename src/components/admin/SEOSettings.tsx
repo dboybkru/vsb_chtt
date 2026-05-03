@@ -24,7 +24,7 @@ const SEOSettings: FC = () => {
   const [catalogTemplate, setCatalogTemplate] = useState('{category} — купить в Калининграде | VSB39')
   const [productTemplate, setProductTemplate] = useState('{name} {brand} — купить в Калининграде | VSB39')
   const [orgName, setOrgName] = useState('ООО "ВСБ39"')
-  const [orgAddress, setOrgAddress] = useState('г. Калининград, ул. Примерная, 123')
+  const [orgAddress, setOrgAddress] = useState('г. Калининград')
   const [orgPhone, setOrgPhone] = useState('+7 (4012) 39-39-39')
   const [orgEmail, setOrgEmail] = useState('info@vsb39.ru')
   const [autoSitemap, setAutoSitemap] = useState(true)

@@ -1,9 +1,10 @@
 import type { FC } from 'react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Calculator,
   ChevronLeft,
   ChevronRight,
+  Trash2,
 } from 'lucide-react'
 import {
   Table,
@@ -23,15 +24,6 @@ interface Estimate {
   date: string
 }
 
-const initialEstimates: Estimate[] = [
-  { id: 124, title: 'Офис на Ленина', client: 'ООО "Пример"', amount: 285000, status: 'sent', date: '2024-05-01' },
-  { id: 123, title: 'Склад на Московском', client: 'ИП Иванов', amount: 142000, status: 'approved', date: '2024-04-28' },
-  { id: 122, title: 'Магазин "Продукты"', client: 'ООО "Торг"', amount: 67000, status: 'draft', date: '2024-04-25' },
-  { id: 121, title: 'Школа №15', client: 'МБОУ СШ №15', amount: 520000, status: 'sent', date: '2024-04-20' },
-  { id: 120, title: 'ЖК "Солнечный"', client: 'УК "Дом"', amount: 890000, status: 'approved', date: '2024-04-15' },
-  { id: 119, title: 'Ресторан "Вкус"', client: 'ООО "Вкус"', amount: 195000, status: 'rejected', date: '2024-04-10' },
-]
-
 const statusMap: Record<string, { label: string; color: string }> = {
   draft: { label: 'Черновик', color: 'bg-text-muted' },
   sent: { label: 'Отправлена', color: 'bg-caution-amber' },
@@ -42,8 +34,21 @@ const statusMap: Record<string, { label: string; color: string }> = {
 const ITEMS_PER_PAGE = 5
 
 const EstimatesHistory: FC = () => {
-  const [estimates] = useState<Estimate[]>(initialEstimates)
+  const [estimates, setEstimates] = useState<Estimate[]>([])
   const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    fetch('/api/smetas?limit=100')
+      .then((r) => r.json())
+      .then((data) => setEstimates(data.items || []))
+      .catch(console.error)
+  }, [])
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Удалить смету?')) return
+    await fetch(`/api/smetas/${id}`, { method: 'DELETE' })
+    setEstimates((prev) => prev.filter((e) => e.id !== id))
+  }
 
   const totalPages = Math.ceil(estimates.length / ITEMS_PER_PAGE)
   const paginated = estimates.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
@@ -61,6 +66,7 @@ const EstimatesHistory: FC = () => {
                 <TableHead className="text-text-muted text-xs">Сумма</TableHead>
                 <TableHead className="text-text-muted text-xs">Статус</TableHead>
                 <TableHead className="text-text-muted text-xs">Дата</TableHead>
+                <TableHead className="text-text-muted text-xs">Действия</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -87,6 +93,15 @@ const EstimatesHistory: FC = () => {
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-text-muted">{est.date}</TableCell>
+                  <TableCell>
+                    <button
+                      onClick={() => handleDelete(est.id)}
+                      className="p-1.5 rounded hover:bg-midnight text-text-muted hover:text-red-400 transition-colors"
+                      title="Удалить"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

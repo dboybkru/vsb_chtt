@@ -6,7 +6,6 @@ const navLinks = [
   { to: '/', label: 'Главная' },
   { to: '/services', label: 'Услуги' },
   { to: '/catalog', label: 'Каталог' },
-  { to: '/solutions', label: 'Решения' },
   { to: '/ai', label: 'ИИ-Агент' },
   { to: '/about', label: 'О нас' },
   { to: '/contact', label: 'Контакты' },
@@ -81,7 +80,7 @@ export default function Navbar() {
               className="flex items-center gap-2 px-5 py-2.5 rounded-lg gradient-guard text-white text-sm font-semibold hover:brightness-110 transition-all"
             >
               <Calculator size={16} />
-              Заказать смету
+              Предварительный расчет
             </Link>
           </div>
 
@@ -116,7 +115,7 @@ export default function Navbar() {
                 className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg gradient-guard text-white font-semibold"
               >
                 <Calculator size={18} />
-                Заказать смету
+                Предварительный расчет
               </Link>
             </div>
           </nav>

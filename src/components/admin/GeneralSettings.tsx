@@ -10,7 +10,7 @@ const GeneralSettings: FC = () => {
   const [siteName, setSiteName] = useState('VSB39')
   const [sitePhone, setSitePhone] = useState('+7 (4012) 39-39-39')
   const [siteEmail, setSiteEmail] = useState('info@vsb39.ru')
-  const [siteAddress, setSiteAddress] = useState('г. Калининград, ул. Примерная, 123')
+  const [siteAddress, setSiteAddress] = useState('г. Калининград')
   const [workingHours, setWorkingHours] = useState('Пн–Пт 9:00–18:00')
   const [maintenanceMode, setMaintenanceMode] = useState(false)
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true)

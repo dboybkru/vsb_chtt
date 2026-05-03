@@ -6,7 +6,6 @@ import {
   Wrench,
   Clock,
   ClipboardCheck,
-  ArrowRight,
 } from 'lucide-react'
 
 const easeSnap = [0.16, 1, 0.3, 1] as [number, number, number, number]

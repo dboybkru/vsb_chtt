@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Download, ArrowRight, FileSpreadsheet, Cpu } from 'lucide-react'
+import { Download, FileSpreadsheet, Cpu } from 'lucide-react'
 
 const easeSnap = [0.16, 1, 0.3, 1] as [number, number, number, number]
 

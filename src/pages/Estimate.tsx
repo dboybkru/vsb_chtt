@@ -3,6 +3,7 @@ import EstimateHeader from '@/components/estimate/EstimateHeader'
 import EquipmentTable from '@/components/estimate/EquipmentTable'
 import LaborServices from '@/components/estimate/LaborServices'
 import ObjectParams from '@/components/estimate/ObjectParams'
+import SavedSmetasList from '@/components/estimate/SavedSmetasList'
 import SummaryBar from '@/components/estimate/SummaryBar'
 
 const printStyles = `
@@ -44,6 +45,7 @@ export default function Estimate() {
       <style>{printStyles}</style>
       <main className="min-h-[100dvh] bg-deep-navy">
         <EstimateHeader />
+        <SavedSmetasList />
         <EquipmentTable />
         <LaborServices />
         <ObjectParams />

@@ -3,7 +3,6 @@ import Layout from './components/Layout'
 import Home from './pages/Home'
 import Services from './pages/Services'
 import Catalog from './pages/Catalog'
-import Solutions from './pages/Solutions'
 import Estimate from './pages/Estimate'
 import AiAgent from './pages/AiAgent'
 import Admin from './pages/Admin'
@@ -18,7 +17,6 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/services" element={<Services />} />
         <Route path="/catalog" element={<Catalog />} />
-        <Route path="/solutions" element={<Solutions />} />
         <Route path="/estimate" element={<Estimate />} />
         <Route path="/ai" element={<AiAgent />} />
         <Route path="/admin" element={<Admin />} />

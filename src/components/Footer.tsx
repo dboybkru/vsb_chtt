@@ -39,7 +39,7 @@ export default function Footer() {
             </p>
             <div className="flex items-start gap-2 text-sm text-text-muted">
               <MapPin size={16} className="mt-0.5 shrink-0 text-guard-green" />
-              <span>г. Калининград, ул. Примерная, 123</span>
+              <span>г. Калининград</span>
             </div>
           </div>
 

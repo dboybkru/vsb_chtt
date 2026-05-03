@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Download, X } from 'lucide-react'
+import { Download, X, Save, ChevronUp } from 'lucide-react'
 import { useEstimate } from './EstimateContext'
 
 export default function SummaryBar() {
-  const { items, itemCount, equipmentTotal, laborTotal, servicesTotal, grandTotal, params } = useEstimate()
+  const { items, itemCount, equipmentTotal, laborTotal, servicesTotal, grandTotal, params, smetaName, smetaDate, saveSmeta } = useEstimate()
   const [showPdf, setShowPdf] = useState(false)
   const [showSticky, setShowSticky] = useState(false)
+  const [showSaveInput, setShowSaveInput] = useState(false)
+  const [saveName, setSaveName] = useState('')
 
   useEffect(() => {
     const handleScroll = () => {
@@ -16,7 +18,14 @@ export default function SummaryBar() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  const today = new Date().toLocaleDateString('ru-RU')
+  const today = smetaDate ? new Date(smetaDate).toLocaleDateString('ru-RU') : new Date().toLocaleDateString('ru-RU')
+
+  const handleSave = () => {
+    const name = saveName.trim() || smetaName || `Смета от ${new Date().toLocaleDateString('ru-RU')}`
+    saveSmeta(name)
+    setSaveName('')
+    setShowSaveInput(false)
+  }
 
   return (
     <>
@@ -37,7 +46,35 @@ export default function SummaryBar() {
               <div className="text-sm text-text-body">
                 Всего позиций: {itemCount} | Оборудование: {equipmentTotal.toLocaleString('ru-RU')} ₽ | Работы: {laborTotal.toLocaleString('ru-RU')} ₽
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                {showSaveInput ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={saveName}
+                      onChange={(e) => setSaveName(e.target.value)}
+                      placeholder="Название"
+                      className="w-36 bg-deep-navy border border-border-subtle rounded-lg px-3 py-2 text-pure-white text-sm focus:border-guard-green outline-none"
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
+                    />
+                    <button
+                      onClick={handleSave}
+                      className="flex items-center gap-1 px-3 py-2 rounded-lg bg-guard-green text-deep-navy text-sm font-semibold hover:brightness-110 transition-all"
+                    >
+                      <Save size={14} />
+                      OK
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowSaveInput(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-guard-green text-guard-green text-sm font-semibold hover:bg-guard-green/10 transition-all"
+                  >
+                    <Save size={16} />
+                    Сохранить
+                  </button>
+                )}
                 <span className="font-mono text-2xl font-bold gradient-guard-text">
                   {grandTotal.toLocaleString('ru-RU')} ₽
                 </span>
@@ -47,6 +84,13 @@ export default function SummaryBar() {
                 >
                   <Download size={16} />
                   Скачать PDF
+                </button>
+                <button
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="p-2 rounded-lg border border-border-subtle text-text-muted hover:text-pure-white transition-colors"
+                  aria-label="Наверх"
+                >
+                  <ChevronUp size={18} />
                 </button>
               </div>
             </div>
@@ -78,7 +122,7 @@ export default function SummaryBar() {
                   <div>
                     <h2 className="font-display text-2xl font-bold text-guard-green mb-1">VSB39</h2>
                     <p className="text-sm text-text-muted">Ваша Система Безопасности</p>
-                    <p className="text-sm text-text-muted">г. Калининград, ул. Примерная, 123</p>
+                    <p className="text-sm text-text-muted">г. Калининград</p>
                     <p className="text-sm text-text-muted">+7 (4012) 39-39-39 | info@vsb39.ru</p>
                   </div>
                   <div className="text-right">
@@ -88,9 +132,9 @@ export default function SummaryBar() {
                 </div>
 
                 <h1 className="font-display text-3xl font-semibold text-pure-white text-center mb-2">
-                  Коммерческое предложение
+                  {smetaName || 'Коммерческое предложение'}
                 </h1>
-                <p className="text-center text-text-muted mb-8">Калькулятор сметы VSB39</p>
+                <p className="text-center text-text-muted mb-8">Предварительный расчет VSB39</p>
 
                 {items.length > 0 && (
                   <>
@@ -100,8 +144,8 @@ export default function SummaryBar() {
                         <tr className="border-b border-border-subtle text-left">
                           <th className="py-2 text-text-muted font-medium">№</th>
                           <th className="py-2 text-text-muted font-medium">Наименование</th>
-                          <th className="py-2 text-text-muted font-medium">Артикул</th>
                           <th className="py-2 text-text-muted font-medium text-right">Кол-во</th>
+                          <th className="py-2 text-text-muted font-medium text-right">Ед.</th>
                           <th className="py-2 text-text-muted font-medium text-right">Цена</th>
                           <th className="py-2 text-text-muted font-medium text-right">Сумма</th>
                         </tr>
@@ -111,8 +155,8 @@ export default function SummaryBar() {
                           <tr key={item.id} className="border-b border-border-subtle/50">
                             <td className="py-2 text-text-body">{i + 1}</td>
                             <td className="py-2 text-pure-white">{item.name}</td>
-                            <td className="py-2 text-text-muted">{item.sku}</td>
                             <td className="py-2 text-right text-text-body">{item.quantity}</td>
+                            <td className="py-2 text-right text-text-muted">{item.unit || 'шт.'}</td>
                             <td className="py-2 text-right text-text-body">{item.price.toLocaleString('ru-RU')} ₽</td>
                             <td className="py-2 text-right text-guard-green font-medium">
                               {(item.price * item.quantity).toLocaleString('ru-RU')} ₽

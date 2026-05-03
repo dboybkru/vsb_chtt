@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Search,
   Plus,
@@ -51,30 +51,45 @@ interface Product {
   description: string
 }
 
-const initialProducts: Product[] = [
-  { id: 1, name: 'DS-2CD2143G2-I', sku: 'HIK-001', brand: 'Hikvision', category: 'Камеры', priceRetail: 12500, priceInstaller: 10800, status: 'active', description: '4 Мп купольная IP-камера с ИК-подсветкой' },
-  { id: 2, name: 'DS-2CD2347G2-LU', sku: 'HIK-002', brand: 'Hikvision', category: 'Камеры', priceRetail: 18900, priceInstaller: 16500, status: 'active', description: '4 Мп цилиндрическая IP-камера ColorVu' },
-  { id: 3, name: 'DS-7616NI-K2', sku: 'HIK-003', brand: 'Hikvision', category: 'Регистраторы', priceRetail: 45000, priceInstaller: 39000, status: 'active', description: '16-канальный NVR 4K' },
-  { id: 4, name: 'DS-K1T671M', sku: 'HIK-004', brand: 'Hikvision', category: 'СКУД', priceRetail: 32500, priceInstaller: 28000, status: 'hidden', description: 'Терминал доступа с распознаванием лиц' },
-  { id: 5, name: 'RVi-1NCT2023', sku: 'RVI-001', brand: 'RVi', category: 'Камеры', priceRetail: 8900, priceInstaller: 7700, status: 'active', description: '2 Мп цилиндрическая IP-камера' },
-  { id: 6, name: 'Dahua IPC-HDW2431TP-AS-S2', sku: 'DAH-001', brand: 'Dahua', category: 'Камеры', priceRetail: 14200, priceInstaller: 12300, status: 'active', description: '4 Мп купольная IP-камера WizSense' },
-  { id: 7, name: 'Bolid С2000-СП1', sku: 'BOL-001', brand: 'BOLID', category: 'ОПС', priceRetail: 18500, priceInstaller: 16000, status: 'active', description: 'Прибор приёмно-контрольный охранно-пожарный' },
-  { id: 8, name: 'Cabeus UTP-4P-C6', sku: 'CAB-001', brand: 'Cabeus', category: 'Кабель', priceRetail: 28, priceInstaller: 24, status: 'active', description: 'Кабель UTP Cat.6 4 пары' },
-]
-
-const CATEGORIES = ['Все', 'Камеры', 'Регистраторы', 'СКУД', 'ОПС', 'Кабель', 'Сетевое оборудование']
+const CATEGORIES = ['Все', 'Камеры', 'Регистраторы', 'СКУД', 'ОПС', 'Кабель', 'Сетевое оборудование', 'equipment', 'cable', 'other']
 const BRANDS = ['Hikvision', 'Dahua', 'RVi', 'BOLID', 'Cabeus']
 
 const ITEMS_PER_PAGE = 5
 
 const CatalogManagement: FC = () => {
-  const [products, setProducts] = useState<Product[]>(initialProducts)
+  const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('Все')
   const [page, setPage] = useState(1)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [deleteProduct, setDeleteProduct] = useState<Product | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/materials?limit=500')
+      .then((r) => r.json())
+      .then((data) => {
+        const mapped = (data.items || []).map((m: any) => ({
+          id: m.id,
+          name: m.name || '',
+          sku: String(m.id),
+          brand: m.source?.split(',')[0]?.trim() || '',
+          category: m.item_type || 'Другое',
+          priceRetail: m.price || 0,
+          priceInstaller: m.price || 0,
+          status: 'active' as const,
+          description: m.characteristics || '',
+        }))
+        setProducts(mapped)
+      })
+      .catch(console.error)
+  }, [])
+
+  const handleClearDatabase = async () => {
+    if (!confirm('Вы уверены? Это удалит ВСЕ товары из базы.')) return
+    await fetch('/api/materials', { method: 'DELETE' })
+    setProducts([])
+  }
 
   const filtered = products.filter((p) => {
     const matchesSearch =
@@ -153,6 +168,15 @@ const CatalogManagement: FC = () => {
 
         <Button variant="outline" className="border-border-subtle text-text-body hover:text-pure-white">
           Экспорт CSV
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={handleClearDatabase}
+          className="border-red-500/30 text-red-400 hover:text-red-300 hover:border-red-500/50"
+        >
+          <Trash2 size={16} className="mr-1" />
+          Очистить базу
         </Button>
       </div>
 
