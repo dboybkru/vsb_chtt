@@ -48,21 +48,11 @@ function fb(id: string, n: string, p: number, u: string, c: string, d: string): 
   return {id, name: n, price: p, unit: u, category: c, description: d, source: "расчёт ВСБ39"} as Product;
 }
 
-function selCam(products: Product[], c: Complexity, cameraType: "IP" | "AHD" = "IP") {
-  if (cameraType === "AHD") {
-    return sel(products, p => p.category === "Камеры" && (idx(p).includes("ahd") || idx(p).includes("аналог") || idx(p).includes("tvi") || idx(p).includes("cvi")))
-      || sel(products, p => p.category === "Камеры")
-      || fb("est-cam", `AHD-камера`, 0, "шт", "Камеры", "Не найдена в базе");
-  }
+function selCam(products: Product[], c: Complexity) {
   const r = c==="simple"?"2MP":"4MP";
   return sel(products, p=>isIP(p)&&hasRes(p,r)) || sel(products, isIP) || fb("est-cam",`IP-камера ${r}`,0,"шт","Камеры","Не найдена в базе");
 }
-function selNVR(products: Product[], n: number, cameraType: "IP" | "AHD" = "IP") {
-  if (cameraType === "AHD") {
-    return sel(products, p => p.category === "Регистраторы" && (idx(p).includes("ahd") || idx(p).includes("гибрид") || idx(p).includes("tvi") || idx(p).includes("cvi")))
-      || sel(products, p => p.category === "Регистраторы" && (idx(p).includes("гибрид") || idx(p).includes("ahd")))
-      || fb("est-nvr", `Гибридный регистратор на ${n} камер`, 0, "шт", "Регистраторы", "Не найден");
-  }
+function selNVR(products: Product[], n: number) {
   let r = n<=10?sel(products,p=>idx(p).includes("nvr-5101")):n<=16?sel(products,p=>idx(p).includes("nvr-5161")):null;
   if(!r) r = sel(products,p=>p.category==="Регистраторы"&&(idx(p).includes("nvr")||idx(p).includes("ip-видеорегистратор"))&&getCh(p)>=n);
   return r || fb("est-nvr",`NVR на ${n} камер`,0,"шт","Регистраторы","Не найден");
@@ -79,7 +69,7 @@ function buildLen(area: number, type: ObjectType) {
   const m = type==="Дом"?1.2:type==="Производство"?1.5:1; return Math.round(b*m);
 }
 
-export function calculateEstimate(products: Product[], area: number, complexity: Complexity, type: ObjectType="Склад", cameraType: "IP" | "AHD" = "IP"): EstimateResult {
+export function calculateEstimate(products: Product[], area: number, complexity: Complexity, type: ObjectType="Склад"): EstimateResult {
   const C = CALC_CONSTANTS;
   const bl = buildLen(area, type);
   let bcc = bl>0?Math.ceil(bl/C.cameraStepMeters):0;
@@ -88,8 +78,8 @@ export function calculateEstimate(products: Product[], area: number, complexity:
   const cc = Math.ceil(bcc*cm);
   const cab = cc*C.cablePerCamera;
   const sc = cc>0?Math.ceil(cc/4):0;
-  const cam = selCam(products, complexity, cameraType);
-  const nvr = selNVR(products, cc, cameraType);
+  const cam = selCam(products, complexity);
+  const nvr = selNVR(products, cc);
   const sw = selSw(products);
   const cable = selCable(products);
 

@@ -38,7 +38,6 @@ export interface ObjectParams {
 }
 
 interface EstimateContextValue {
-  estimate: { items: EstimateItem[] }
   items: EstimateItem[]
   labor: LaborSettings
   services: EstimateServices
@@ -46,8 +45,6 @@ interface EstimateContextValue {
   addItem: (item: EstimateItem) => void
   removeItem: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
-  updateItemQuantity: (id: string, quantity: number) => void
-  clearEstimate: () => void
   setLabor: (labor: Partial<LaborSettings>) => void
   setServices: (services: Partial<EstimateServices>) => void
   setParams: (params: Partial<ObjectParams>) => void
@@ -113,23 +110,8 @@ export function EstimateProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const updateQuantity = useCallback((id: string, quantity: number) => {
-    if (quantity < 1) {
-      setItems(prev => prev.filter(i => i.id !== id))
-      return
-    }
+    if (quantity < 1) return
     setItems(prev => prev.map(i => i.id === id ? { ...i, quantity } : i))
-  }, [])
-
-  const updateItemQuantity = useCallback((id: string, quantity: number) => {
-    if (quantity < 1) {
-      setItems(prev => prev.filter(i => i.id !== id))
-      return
-    }
-    setItems(prev => prev.map(i => i.id === id ? { ...i, quantity } : i))
-  }, [])
-
-  const clearEstimate = useCallback(() => {
-    setItems([])
   }, [])
 
   const setLabor = useCallback((partial: Partial<LaborSettings>) => {
@@ -157,12 +139,11 @@ export function EstimateProvider({ children }: { children: ReactNode }) {
 
   const grandTotal = equipmentTotal + laborTotal + servicesTotal
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0)
-  const estimate = { items }
 
   return (
     <EstimateContext.Provider value={{
-      estimate, items, labor, services, params,
-      addItem, removeItem, updateQuantity, updateItemQuantity, clearEstimate, setLabor, setServices, setParams,
+      items, labor, services, params,
+      addItem, removeItem, updateQuantity, setLabor, setServices, setParams,
       equipmentTotal, laborTotal, servicesTotal, grandTotal, itemCount,
     }}>
       {children}
