@@ -16,12 +16,193 @@ import {
   ArrowRight,
   FileText,
   Heart,
+  X,
+  Loader2,
+  ExternalLink,
 } from 'lucide-react'
 import { useCatalog } from '@/hooks/useCatalog'
 import { tierColorClass, type Brand, type Category, type Product } from '@/data/products'
 import { cn } from '@/lib/utils'
+import { apiRequest, type ApiMaterial } from '@/lib/api'
 
 const easeSnap = [0.16, 1, 0.3, 1] as [number, number, number, number]
+
+function splitCharacteristics(value?: string) {
+  const text = (value || '').replace(/\r/g, '\n').trim()
+  if (!text) return []
+  const rows = text
+    .split(/\n|;| • | \| /)
+    .map((row) => row.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+  if (rows.length > 1) return rows.slice(0, 18)
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .map((row) => row.trim())
+    .filter(Boolean)
+    .slice(0, 10)
+}
+
+function ProductDetailsModal({
+  product,
+  onClose,
+  onAdd,
+  inEstimate,
+}: {
+  product: Product | null
+  onClose: () => void
+  onAdd: (p: Product) => void
+  inEstimate: boolean
+}) {
+  const [material, setMaterial] = useState<ApiMaterial | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [added, setAdded] = useState(false)
+
+  useEffect(() => {
+    if (!product) return
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    setMaterial(null)
+    apiRequest<ApiMaterial>(`/materials/${product.id}`)
+      .then((data) => {
+        if (!cancelled) setMaterial(data)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Не удалось открыть характеристики')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [product])
+
+  useEffect(() => {
+    if (!product) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [onClose, product])
+
+  if (!product) return null
+
+  const rows = splitCharacteristics(material?.characteristics || product.description)
+  const image = material?.image_url || product.image
+  const handleAdd = () => {
+    onAdd(product)
+    setAdded(true)
+    window.setTimeout(() => setAdded(false), 1400)
+  }
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-midnight/80 backdrop-blur-md"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onMouseDown={onClose}
+      >
+        <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-label={product.name}
+          className="w-full max-w-5xl max-h-[88vh] overflow-hidden rounded-xl border border-border-glow bg-deep-navy shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+          initial={{ opacity: 0, y: 20, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 20, scale: 0.98 }}
+          transition={{ duration: 0.22, ease: easeSnap }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-center justify-between gap-4 px-5 py-4 border-b border-border-subtle">
+            <div className="min-w-0">
+              <div className="flex flex-wrap gap-2 mb-2">
+                <span className="px-2 py-0.5 rounded-full bg-guard-green/15 text-guard-green text-[10px] uppercase tracking-wide">
+                  {material?.brand || product.brand}
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-pure-white/10 text-text-body text-[10px] uppercase tracking-wide">
+                  {material?.category || product.category}
+                </span>
+              </div>
+              <h2 className="font-display text-xl md:text-2xl text-pure-white truncate">{material?.name || product.name}</h2>
+              <p className="text-xs text-text-muted mt-1">Артикул: {material?.sku || product.sku}</p>
+            </div>
+            <button onClick={onClose} className="shrink-0 p-2 rounded-lg text-text-muted hover:text-pure-white hover:bg-pure-white/10 transition-colors">
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-0 overflow-y-auto max-h-[calc(88vh-88px)]">
+            <div className="p-5 border-b lg:border-b-0 lg:border-r border-border-subtle">
+              <div className="aspect-[4/3] rounded-lg bg-midnight overflow-hidden mb-4">
+                <img src={image} alt={product.name} className="w-full h-full object-contain" />
+              </div>
+              <div className="font-mono text-2xl font-semibold text-guard-green mb-4">
+                {Math.round(material?.price || product.price).toLocaleString('ru-RU')} ₽
+              </div>
+              <button
+                onClick={handleAdd}
+                className={cn(
+                  'w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all',
+                  added || inEstimate ? 'bg-guard-green/20 text-guard-green' : 'bg-guard-green text-deep-navy hover:brightness-110'
+                )}
+              >
+                {added || inEstimate ? <Check size={18} /> : <ShoppingCart size={18} />}
+                {added || inEstimate ? 'В смете' : 'Добавить в смету'}
+              </button>
+              {material?.product_url && (
+                <a href={material.product_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 text-sm text-guard-green hover:underline">
+                  <ExternalLink size={15} /> Источник характеристик
+                </a>
+              )}
+            </div>
+
+            <div className="p-5">
+              {loading && (
+                <div className="flex items-center gap-2 text-text-body py-8">
+                  <Loader2 size={18} className="animate-spin text-guard-green" /> Подтягиваем характеристики...
+                </div>
+              )}
+              {error && <div className="text-sm text-caution-amber mb-4">{error}</div>}
+              <h3 className="font-display text-lg text-pure-white mb-3">Характеристики и описание</h3>
+              {rows.length > 0 ? (
+                <div className="border border-border-subtle rounded-xl overflow-hidden">
+                  {rows.map((row, index) => (
+                    <div key={`${row}-${index}`} className="px-4 py-3 border-b border-border-subtle last:border-b-0 text-sm text-text-body">
+                      {row}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="border border-border-subtle rounded-xl p-5 text-sm text-text-body">
+                  Характеристик пока нет в базе. При открытии система пробует найти их на сайте производителя или Tinko.
+                </div>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                <div className="rounded-lg border border-border-subtle p-3">
+                  <div className="text-[10px] text-text-muted uppercase tracking-wide">Источник</div>
+                  <div className="text-sm text-pure-white break-words mt-1">{material?.source || 'Прайс / интернет'}</div>
+                </div>
+                <div className="rounded-lg border border-border-subtle p-3">
+                  <div className="text-[10px] text-text-muted uppercase tracking-wide">Фото</div>
+                  <div className="text-sm text-pure-white mt-1">{material?.photo_status === 'ready' ? 'Найдено' : 'Нет / ищется'}</div>
+                </div>
+                <div className="rounded-lg border border-border-subtle p-3">
+                  <div className="text-[10px] text-text-muted uppercase tracking-wide">Ед. изм.</div>
+                  <div className="text-sm text-pure-white mt-1">{material?.unit || 'шт'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
 
 /* ------------------------------------------------------------------ */
 /*  Category Pills                                                      */
@@ -227,6 +408,7 @@ function ProductCardGrid({
   quantity,
   onAdd,
   onUpdateQty,
+  onOpenDetails,
 }: {
   product: Product
   index: number
@@ -234,6 +416,7 @@ function ProductCardGrid({
   quantity: number
   onAdd: (p: Product) => void
   onUpdateQty: (id: string, q: number) => void
+  onOpenDetails: (p: Product) => void
 }) {
   const [addedFlash, setAddedFlash] = useState(false)
 
@@ -256,7 +439,7 @@ function ProductCardGrid({
       )}
     >
       {/* Image Area */}
-      <Link to={`/catalog/${product.id}`} className="relative block w-full aspect-[4/3] overflow-hidden">
+      <button type="button" onClick={() => onOpenDetails(product)} className="relative block w-full aspect-[4/3] overflow-hidden text-left">
         <img
           src={product.image}
           alt={product.name}
@@ -268,20 +451,22 @@ function ProductCardGrid({
           {product.brand}
         </div>
         {/* Favorite */}
-        <button
-          type="button"
-          onClick={(event) => event.preventDefault()}
+        <span
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+          }}
           className="absolute top-2 right-2 p-1.5 rounded-full bg-midnight/60 text-text-muted hover:text-guard-green transition-colors"
         >
           <Heart size={16} />
-        </button>
-      </Link>
+        </span>
+      </button>
 
       {/* Info Area */}
       <div className="p-4">
-        <Link to={`/catalog/${product.id}`} className="font-display font-medium text-base text-pure-white leading-snug line-clamp-2 mb-1 hover:text-guard-green transition-colors">
+        <button type="button" onClick={() => onOpenDetails(product)} className="block text-left font-display font-medium text-base text-pure-white leading-snug line-clamp-2 mb-1 hover:text-guard-green transition-colors">
           {product.name}
-        </Link>
+        </button>
         <p className="text-xs text-text-muted mb-3">Артикул: {product.sku}</p>
 
         <div className="flex items-center justify-between mb-3">
@@ -355,6 +540,7 @@ function ProductCardList({
   quantity,
   onAdd,
   onUpdateQty,
+  onOpenDetails,
 }: {
   product: Product
   index: number
@@ -362,6 +548,7 @@ function ProductCardList({
   quantity: number
   onAdd: (p: Product) => void
   onUpdateQty: (id: string, q: number) => void
+  onOpenDetails: (p: Product) => void
 }) {
   const [addedFlash, setAddedFlash] = useState(false)
 
@@ -384,7 +571,7 @@ function ProductCardList({
       )}
     >
       {/* Image */}
-      <Link to={`/catalog/${product.id}`} className="relative block w-full sm:w-[200px] shrink-0 aspect-[4/3] sm:aspect-[4/3] rounded-lg overflow-hidden">
+      <button type="button" onClick={() => onOpenDetails(product)} className="relative block w-full sm:w-[200px] shrink-0 aspect-[4/3] sm:aspect-[4/3] rounded-lg overflow-hidden">
         <img
           src={product.image}
           alt={product.name}
@@ -394,14 +581,14 @@ function ProductCardList({
         <div className="absolute top-0 left-0 bg-midnight text-guard-green text-[10px] font-medium uppercase tracking-[0.05em] px-2.5 py-1 rounded-br-lg">
           {product.brand}
         </div>
-      </Link>
+      </button>
 
       {/* Info */}
       <div className="flex-1 flex flex-col justify-between">
         <div>
-          <Link to={`/catalog/${product.id}`} className="block font-display font-medium text-base text-pure-white leading-snug mb-1 hover:text-guard-green transition-colors">
+          <button type="button" onClick={() => onOpenDetails(product)} className="block text-left font-display font-medium text-base text-pure-white leading-snug mb-1 hover:text-guard-green transition-colors">
             {product.name}
-          </Link>
+          </button>
           <p className="text-xs text-text-muted mb-2">Артикул: {product.sku}</p>
           <p className="text-sm text-text-body mb-3 line-clamp-2">{product.description}</p>
           <span className={cn('inline-block px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide', tierColorClass[product.priceTier])}>
@@ -725,6 +912,7 @@ export default function Catalog() {
   } = useCatalog()
 
   const [filterSticky, setFilterSticky] = useState(false)
+  const [detailsProduct, setDetailsProduct] = useState<Product | null>(null)
   const filterRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -910,6 +1098,7 @@ export default function Catalog() {
                       quantity={getQuantity(product.id)}
                       onAdd={addToEstimate}
                       onUpdateQty={updateQuantity}
+                      onOpenDetails={setDetailsProduct}
                     />
                   ))}
                 </div>
@@ -924,6 +1113,7 @@ export default function Catalog() {
                       quantity={getQuantity(product.id)}
                       onAdd={addToEstimate}
                       onUpdateQty={updateQuantity}
+                      onOpenDetails={setDetailsProduct}
                     />
                   ))}
                 </div>
@@ -957,6 +1147,12 @@ export default function Catalog() {
         onUpdateQty={updateQuantity}
         onToggleLabor={toggleLabor}
         onClear={clearEstimate}
+      />
+      <ProductDetailsModal
+        product={detailsProduct}
+        onClose={() => setDetailsProduct(null)}
+        onAdd={addToEstimate}
+        inEstimate={detailsProduct ? isInEstimate(detailsProduct.id) : false}
       />
     </div>
   )

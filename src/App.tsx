@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import Layout from './components/Layout'
 import { EstimateProvider } from './components/estimate/EstimateContext'
+import SEO from './components/SEO'
 
 const Home = lazy(() => import('./pages/Home'))
 const Services = lazy(() => import('./pages/Services'))
@@ -13,6 +14,8 @@ const Admin = lazy(() => import('./pages/Admin'))
 const About = lazy(() => import('./pages/About'))
 const Contact = lazy(() => import('./pages/Contact'))
 const Prices = lazy(() => import('./pages/Prices'))
+const Privacy = lazy(() => import('./pages/Privacy'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 
 const Loader = () => (
   <div className="min-h-screen bg-deep-navy flex items-center justify-center">
@@ -23,6 +26,7 @@ const Loader = () => (
 export default function App() {
   return (
     <EstimateProvider>
+      <SEO />
       <Layout>
         <Suspense fallback={<Loader />}>
           <Routes>
@@ -36,6 +40,8 @@ export default function App() {
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/prices" element={<Prices />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </Layout>
