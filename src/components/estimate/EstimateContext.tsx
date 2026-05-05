@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { apiRequest, type LaborRates } from '@/lib/api'
 
 export interface EstimateItem {
   id: string
@@ -38,8 +39,11 @@ export interface ObjectParams {
 }
 
 interface EstimateContextValue {
-  estimate: { items: EstimateItem[] }
   items: EstimateItem[]
+  estimate: {
+    items: EstimateItem[]
+    includeLabor: boolean
+  }
   labor: LaborSettings
   services: EstimateServices
   params: ObjectParams
@@ -56,14 +60,57 @@ interface EstimateContextValue {
   servicesTotal: number
   grandTotal: number
   itemCount: number
+  laborRates: LaborRates
 }
 
 const STORAGE_KEY = 'vsb39_estimate'
 
-function loadFromStorage(): Partial<EstimateContextValue> | null {
+function isEstimateItem(item: unknown): item is EstimateItem {
+  if (!item || typeof item !== 'object') return false
+  const candidate = item as Partial<EstimateItem>
+  return Boolean(candidate.id && candidate.name && candidate.sku && candidate.brand && Number.isFinite(candidate.price))
+}
+
+function loadFromStorage(): {
+  items?: EstimateItem[]
+  labor?: LaborSettings
+  services?: EstimateServices
+  params?: ObjectParams
+} | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as {
+      items?: Array<Partial<EstimateItem> & { productId?: string; product?: EstimateItem }>
+      labor?: LaborSettings
+      services?: EstimateServices
+      params?: ObjectParams
+    }
+
+    const items = parsed.items
+      ?.map((item) => {
+        const candidate = item.product || item
+        const product = isEstimateItem(candidate) ? candidate : null
+        if (!product) return null
+        return {
+          id: product.id,
+          name: product.name,
+          sku: product.sku,
+          brand: product.brand,
+          price: product.price,
+          quantity: Number.isFinite(item.quantity) && item.quantity ? Number(item.quantity) : 1,
+          image: product.image,
+          category: product.category,
+        }
+      })
+      .filter((item): item is EstimateItem => item !== null)
+
+    return {
+      items: items && items.length > 0 ? items : undefined,
+      labor: parsed.labor,
+      services: parsed.services,
+      params: parsed.params,
+    }
   } catch { /* ignore */ }
   return null
 }
@@ -74,14 +121,10 @@ function saveToStorage(state: { items: EstimateItem[]; labor: LaborSettings; ser
   } catch { /* ignore */ }
 }
 
-const defaultItems: EstimateItem[] = [
-  { id: 'cam1', name: 'IP-камера купольная 4Мп', sku: 'DS-2CD2143G2-I', brand: 'Hikvision', price: 12800, quantity: 4, image: '/catalog-camera-1.jpg', category: 'Камеры' },
-  { id: 'nvr1', name: 'Сетевой видеорегистратор 8-канальный', sku: 'DS-7608NI-K2', brand: 'Hikvision', price: 24500, quantity: 1, image: '/catalog-nvr-1.jpg', category: 'Регистраторы' },
-  { id: 'skud1', name: 'Считыватель бесконтактных карт', sku: 'DS-K1107M', brand: 'Hikvision', price: 4200, quantity: 2, image: '/catalog-skud-1.jpg', category: 'СКУД' },
-  { id: 'net1', name: 'Коммутатор PoE 8 портов', sku: 'DS-3E0109P-E', brand: 'Hikvision', price: 8900, quantity: 1, image: '/catalog-network-1.jpg', category: 'Сети' },
-]
+const defaultItems: EstimateItem[] = []
 
 const defaultLabor: LaborSettings = { auto: true, complexity: 'medium', manualCost: 0 }
+const defaultLaborRates: LaborRates = { simple_percent: 20, medium_percent: 30, complex_percent: 50 }
 const defaultServices: EstimateServices = { design: false, training: false, commissioning: false, warranty: false }
 const defaultParams: ObjectParams = { type: '', area: 0, cameras: 0, accessPoints: 0, fireAlarm: false, network: false, address: '', phone: '', name: '', notes: '' }
 
@@ -91,12 +134,27 @@ export function EstimateProvider({ children }: { children: ReactNode }) {
   const stored = loadFromStorage()
   const [items, setItems] = useState<EstimateItem[]>(stored?.items ?? defaultItems)
   const [labor, setLaborState] = useState<LaborSettings>(stored?.labor ?? defaultLabor)
+  const [laborRates, setLaborRates] = useState<LaborRates>(defaultLaborRates)
   const [services, setServicesState] = useState<EstimateServices>(stored?.services ?? defaultServices)
   const [params, setParamsState] = useState<ObjectParams>(stored?.params ?? defaultParams)
 
   useEffect(() => {
     saveToStorage({ items, labor, services, params })
   }, [items, labor, services, params])
+
+  useEffect(() => {
+    let cancelled = false
+    apiRequest<LaborRates>('/settings/labor')
+      .then((rates) => {
+        if (!cancelled) setLaborRates(rates)
+      })
+      .catch(() => {
+        if (!cancelled) setLaborRates(defaultLaborRates)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const addItem = useCallback((item: EstimateItem) => {
     setItems(prev => {
@@ -113,18 +171,7 @@ export function EstimateProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const updateQuantity = useCallback((id: string, quantity: number) => {
-    if (quantity < 1) {
-      setItems(prev => prev.filter(i => i.id !== id))
-      return
-    }
-    setItems(prev => prev.map(i => i.id === id ? { ...i, quantity } : i))
-  }, [])
-
-  const updateItemQuantity = useCallback((id: string, quantity: number) => {
-    if (quantity < 1) {
-      setItems(prev => prev.filter(i => i.id !== id))
-      return
-    }
+    if (quantity < 1) return
     setItems(prev => prev.map(i => i.id === id ? { ...i, quantity } : i))
   }, [])
 
@@ -146,7 +193,12 @@ export function EstimateProvider({ children }: { children: ReactNode }) {
 
   const equipmentTotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0)
 
-  const laborPercent = labor.complexity === 'simple' ? 0.2 : labor.complexity === 'medium' ? 0.3 : 0.5
+  const laborPercent =
+    (labor.complexity === 'simple'
+      ? laborRates.simple_percent
+      : labor.complexity === 'medium'
+        ? laborRates.medium_percent
+        : laborRates.complex_percent) / 100
   const laborTotal = labor.auto ? Math.round(equipmentTotal * laborPercent) : labor.manualCost
 
   const servicesTotal =
@@ -157,13 +209,23 @@ export function EstimateProvider({ children }: { children: ReactNode }) {
 
   const grandTotal = equipmentTotal + laborTotal + servicesTotal
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0)
-  const estimate = { items }
 
   return (
     <EstimateContext.Provider value={{
-      estimate, items, labor, services, params,
-      addItem, removeItem, updateQuantity, updateItemQuantity, clearEstimate, setLabor, setServices, setParams,
-      equipmentTotal, laborTotal, servicesTotal, grandTotal, itemCount,
+      items,
+      estimate: { items, includeLabor: labor.auto },
+      labor,
+      services,
+      params,
+      addItem,
+      removeItem,
+      updateQuantity,
+      updateItemQuantity: updateQuantity,
+      clearEstimate,
+      setLabor,
+      setServices,
+      setParams,
+      equipmentTotal, laborTotal, servicesTotal, grandTotal, itemCount, laborRates,
     }}>
       {children}
     </EstimateContext.Provider>

@@ -3,12 +3,6 @@ import { Wrench, ClipboardCheck } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { useEstimate } from './EstimateContext'
 
-const complexityOptions = [
-  { key: 'simple' as const, label: 'Простой', percent: 20 },
-  { key: 'medium' as const, label: 'Средний', percent: 30 },
-  { key: 'complex' as const, label: 'Сложный', percent: 50 },
-]
-
 const serviceList = [
   { key: 'design' as const, label: 'Проектирование системы', price: 5000 },
   { key: 'training' as const, label: 'Обучение персонала', price: 3000 },
@@ -17,7 +11,12 @@ const serviceList = [
 ]
 
 export default function LaborServices() {
-  const { labor, setLabor, services, setServices, laborTotal, servicesTotal } = useEstimate()
+  const { labor, setLabor, services, setServices, laborTotal, servicesTotal, laborRates } = useEstimate()
+  const complexityOptions = [
+    { key: 'simple' as const, label: 'Простой', percent: laborRates.simple_percent },
+    { key: 'medium' as const, label: 'Средний', percent: laborRates.medium_percent },
+    { key: 'complex' as const, label: 'Сложный', percent: laborRates.complex_percent },
+  ]
 
   return (
     <section className="border-t border-border-subtle">
@@ -39,7 +38,7 @@ export default function LaborServices() {
 
             <div className="flex items-center justify-between bg-charcoal rounded-lg p-4 border border-border-subtle mb-6">
               <span className="text-sm text-text-body">
-                Автоматический расчёт ({labor.complexity === 'simple' ? 20 : labor.complexity === 'medium' ? 30 : 50}% от оборудования)
+                Автоматический расчёт ({complexityOptions.find((item) => item.key === labor.complexity)?.percent ?? 0}% от оборудования)
               </span>
               <Switch
                 checked={labor.auto}

@@ -1,5 +1,7 @@
 export type Category = string
+
 export type Brand = string
+
 export type PriceTier = 'Розница' | 'Инсталлятор' | 'Опт' | 'Крупный опт' | 'Партнёрская'
 
 export interface Product {
@@ -14,20 +16,33 @@ export interface Product {
   description: string
 }
 
-export interface MaterialItem {
-  id: number
-  item_type: string
-  name: string
-  characteristics: string
-  unit: string
-  price: number
-  source: string
-  last_update: string
+export interface ExternalCatalogProduct {
+  id?: string | number
+  name?: string
+  brand?: string
+  category?: string
+  price?: number
+  priceTiers?: {
+    retail?: number
+    installer?: number
+    opt?: number
+    bulk?: number
+    partner?: number
+  }
+  code?: string
+  sku?: string
+  photo?: string
+  analytics?: string
+  description?: string
+  image_url?: string
+  characteristics?: string
+  item_type?: string
+  source?: string
 }
 
-export const categories: Category[] = ['Камеры', 'Регистраторы', 'СКУД', 'ОПС', 'Сеть']
+export const categories: Category[] = ['Камеры', 'Регистраторы', 'СКУД', 'ОПС', 'Сеть', 'Кабель']
 
-export const brands: Brand[] = ['Hikvision', 'Dahua', 'RVi', 'BOLID', 'Рубеж', 'Cabeus']
+export const brands: Brand[] = ['Optimus', 'Hikvision', 'Dahua', 'RVi', 'BOLID', 'Рубеж', 'Cabeus']
 
 export const priceTiers: PriceTier[] = ['Розница', 'Инсталлятор', 'Опт', 'Крупный опт', 'Партнёрская']
 
@@ -39,113 +54,35 @@ export const tierColorClass: Record<PriceTier, string> = {
   'Партнёрская': 'bg-pure-white/10 text-pure-white',
 }
 
-// ---- Image mapping cache ----
-let imageMapping: Record<number, string> | null = null
+export const products: Product[] = []
 
-function getImageMapping(): Record<number, string> {
-  if (imageMapping) return imageMapping
-  try {
-    const stored = localStorage.getItem('catalog-image-mapping')
-    if (stored) {
-      imageMapping = JSON.parse(stored)
-      return imageMapping || {}
-    }
-  } catch { /* ignore */ }
-  return {}
+const imageByCategory: Record<string, string> = {
+  Камеры: '/catalog-camera-1.jpg',
+  Регистраторы: '/catalog-nvr-1.jpg',
+  СКУД: '/catalog-skud-1.jpg',
+  ОПС: '/catalog-skud-1.jpg',
+  Сеть: '/catalog-network-1.jpg',
+  Кабель: '/catalog-network-1.jpg',
 }
 
-export async function loadImageMapping(): Promise<void> {
-  try {
-    const resp = await fetch('/catalog-image-mapping.json')
-    if (resp.ok) {
-      const data = await resp.json()
-      imageMapping = data
-      localStorage.setItem('catalog-image-mapping', JSON.stringify(data))
-    }
-  } catch (e) {
-    console.error('Failed to load image mapping:', e)
-  }
-}
+export function normalizeExternalProduct(raw: ExternalCatalogProduct, index: number): Product | null {
+  const name = raw.name?.trim()
+  if (!name) return null
 
-export function getProductImageById(id: number): string | undefined {
-  const mapping = getImageMapping()
-  return mapping[id]
-}
-// ------------------------------
-
-export function getProductImage(category: string): string {
-  switch (category) {
-    case 'Камеры':
-      return '/catalog-camera-1.jpg'
-    case 'Регистраторы':
-      return '/catalog-nvr-1.jpg'
-    case 'СКУД':
-      return '/catalog-skud-1.jpg'
-    case 'ОПС':
-      return '/catalog-signalization-1.jpg'
-    case 'Сеть':
-      return '/catalog-network-1.jpg'
-    default:
-      return '/catalog-camera-1.jpg'
-  }
-}
-
-function getProductImageCategory(source: string, name: string): Category {
-  const text = (source + ' ' + name).toLowerCase()
-
-  if (text.includes('камер') || text.includes('камера')) {
-    return 'Камеры'
-  } else if (text.includes('регистратор')) {
-    return 'Регистраторы'
-  } else if (text.includes('скуд') || text.includes('домофон')) {
-    return 'СКУД'
-  } else if (text.includes('сигнализация') || text.includes('с2000') || text.includes('извещатель') || text.includes('пожар')) {
-    return 'ОПС'
-  } else if (
-    text.includes('сетевое') ||
-    text.includes('кабель') ||
-    text.includes('блоки питания') ||
-    text.includes('аккумулятор') ||
-    text.includes('коммутатор') ||
-    text.includes('патч') ||
-    text.includes('poе')
-  ) {
-    return 'Сеть'
-  }
-  return 'Камеры'
-}
-
-export function mapMaterialToProduct(material: MaterialItem): Product {
-  const source = material.source || ''
-  const name = material.name || ''
-  // Extract brand from source or name
-  let brand: Brand = 'Optimus'
-  const brandKeywords = [
-    'EL', 'Optimus', 'Hikvision', 'Dahua', 'RVi', 'BOLID',
-    'Рубеж', 'Cabeus', 'PERCo', 'РОСА', 'С2000',
-  ]
-  for (const kw of brandKeywords) {
-    if (source.includes(kw) || name.includes(kw)) {
-      brand = kw
-      break
-    }
-  }
-
-  // Category mapping
-  const category = getProductImageCategory(source, name)
-
-  // Get real image from mapping, fallback to category-based
-  const realImage = getProductImageById(material.id)
+  const category = raw.category?.trim() || (raw.item_type === 'work' ? 'Работы' : 'Оборудование')
+  const brand = raw.brand?.trim() || 'Без бренда'
+  const retail = raw.priceTiers?.retail || raw.price || 0
+  const installer = raw.priceTiers?.installer
 
   return {
-    id: String(material.id),
-    name: material.name,
-    sku: `OPT-${material.id}`,
+    id: String(raw.id || raw.code || `external-${index}`),
+    name,
+    sku: String(raw.code || raw.sku || raw.id || `EXT-${index + 1}`),
     brand,
     category,
-    image: realImage || getProductImage(category),
-    price: material.price,
-    priceTier: 'Розница',
-    description: material.characteristics || '',
+    image: raw.image_url || raw.photo || imageByCategory[category] || '/catalog-camera-1.jpg',
+    price: Math.round(retail),
+    priceTier: installer && installer < retail ? 'Инсталлятор' : 'Розница',
+    description: raw.description || raw.analytics || raw.characteristics || raw.source || 'Оборудование из загруженного каталога.',
   }
 }

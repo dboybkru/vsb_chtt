@@ -12,6 +12,7 @@ const sectionTitles: Record<AdminSection, string> = {
   ai: 'Настройки ИИ-Агента',
   catalog: 'Управление каталогом',
   estimates: 'История смет',
+  works: 'Монтажные работы',
   seo: 'SEO-настройки',
   settings: 'Настройки',
 }

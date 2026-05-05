@@ -1,11 +1,7 @@
 import type { FC } from 'react'
-import { useState, useEffect } from 'react'
-import {
-  Calculator,
-  ChevronLeft,
-  ChevronRight,
-  Trash2,
-} from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Calculator, RefreshCw, Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -14,47 +10,100 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { apiRequest } from '@/lib/api'
 
 interface Estimate {
   id: number
-  title: string
-  client: string
-  amount: number
-  status: 'draft' | 'sent' | 'approved' | 'rejected'
-  date: string
+  name: string
+  customer_name?: string
+  items?: unknown[]
+  total?: number
+  created_at?: string
 }
-
-const statusMap: Record<string, { label: string; color: string }> = {
-  draft: { label: 'Черновик', color: 'bg-text-muted' },
-  sent: { label: 'Отправлена', color: 'bg-caution-amber' },
-  approved: { label: 'Одобрена', color: 'bg-guard-green' },
-  rejected: { label: 'Отклонена', color: 'bg-red-500' },
-}
-
-const ITEMS_PER_PAGE = 5
 
 const EstimatesHistory: FC = () => {
   const [estimates, setEstimates] = useState<Estimate[]>([])
-  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [status, setStatus] = useState('')
 
-  useEffect(() => {
-    fetch('/api/smetas?limit=100')
-      .then((r) => r.json())
-      .then((data) => setEstimates(data.items || []))
-      .catch(console.error)
-  }, [])
+  const token = localStorage.getItem('vsb39_admin_token') || ''
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : undefined
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Удалить смету?')) return
-    await fetch(`/api/smetas/${id}`, { method: 'DELETE' })
-    setEstimates((prev) => prev.filter((e) => e.id !== id))
+  const loadEstimates = async () => {
+    if (!token) {
+      setStatus('Сначала войдите в AI-настройках, чтобы получить backend-доступ')
+      return
+    }
+    setLoading(true)
+    setStatus('')
+    try {
+      const response = await apiRequest<Estimate[]>('/smetas', { headers: authHeaders })
+      setEstimates(response)
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Не удалось загрузить сметы')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const totalPages = Math.ceil(estimates.length / ITEMS_PER_PAGE)
-  const paginated = estimates.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
+  useEffect(() => {
+    void loadEstimates()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const deleteEstimate = async (estimate: Estimate) => {
+    if (!token) {
+      setStatus('Сначала войдите в AI-настройках, чтобы получить backend-доступ')
+      return
+    }
+    if (!window.confirm(`Удалить смету «${estimate.name}»?`)) return
+    try {
+      await apiRequest(`/smetas/${estimate.id}`, { method: 'DELETE', headers: authHeaders })
+      setStatus('Смета удалена')
+      await loadEstimates()
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Не удалось удалить смету')
+    }
+  }
+
+  const clearEstimates = async () => {
+    if (!token) {
+      setStatus('Сначала войдите в AI-настройках, чтобы получить backend-доступ')
+      return
+    }
+    const answer = window.prompt('Это удалит все сметы из базы. Введите УДАЛИТЬ')
+    if (answer !== 'УДАЛИТЬ') return
+    try {
+      const response = await apiRequest<{ deleted_count?: number; message?: string }>('/admin/smetas', {
+        method: 'DELETE',
+        headers: authHeaders,
+      })
+      setEstimates([])
+      setStatus(response.message || `Удалено: ${response.deleted_count ?? 0}`)
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Не удалось очистить сметы')
+    }
+  }
 
   return (
     <div className="p-8 space-y-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button onClick={loadEstimates} variant="outline" className="border-border-subtle text-text-body hover:text-pure-white">
+          <RefreshCw size={16} className="mr-1" />
+          Обновить
+        </Button>
+        <Button onClick={clearEstimates} className="bg-red-500 hover:bg-red-600 text-white">
+          <Trash2 size={16} className="mr-1" />
+          Очистить сметы
+        </Button>
+      </div>
+
+      {status && (
+        <div className="text-sm text-text-body bg-charcoal rounded-lg border border-border-subtle px-4 py-3">
+          {status}
+        </div>
+      )}
+
       <div className="bg-charcoal rounded-xl border border-border-subtle overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
@@ -63,87 +112,48 @@ const EstimatesHistory: FC = () => {
                 <TableHead className="text-text-muted text-xs">№</TableHead>
                 <TableHead className="text-text-muted text-xs">Название</TableHead>
                 <TableHead className="text-text-muted text-xs">Клиент</TableHead>
+                <TableHead className="text-text-muted text-xs">Позиций</TableHead>
                 <TableHead className="text-text-muted text-xs">Сумма</TableHead>
-                <TableHead className="text-text-muted text-xs">Статус</TableHead>
-                <TableHead className="text-text-muted text-xs">Дата</TableHead>
                 <TableHead className="text-text-muted text-xs">Действия</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginated.map((est) => (
-                <TableRow
-                  key={est.id}
-                  className="border-border-subtle hover:bg-midnight/50 transition-colors duration-150"
-                >
-                  <TableCell className="text-sm text-text-body font-mono">#{est.id}</TableCell>
+              {estimates.map((estimate) => (
+                <TableRow key={estimate.id} className="border-border-subtle hover:bg-midnight/50">
+                  <TableCell className="text-sm text-text-body font-mono">#{estimate.id}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Calculator size={14} className="text-guard-green" />
-                      <span className="text-sm text-pure-white">{est.title}</span>
+                      <span className="text-sm text-pure-white">{estimate.name}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm text-text-body">{est.client}</TableCell>
+                  <TableCell className="text-sm text-text-body">{estimate.customer_name || '-'}</TableCell>
+                  <TableCell className="text-sm text-text-body">{estimate.items?.length ?? 0}</TableCell>
                   <TableCell className="text-sm text-guard-green font-mono">
-                    {est.amount.toLocaleString('ru-RU')} ₽
+                    {Number(estimate.total || 0).toLocaleString('ru-RU')} ₽
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${statusMap[est.status].color}`} />
-                      <span className="text-sm text-text-body">{statusMap[est.status].label}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-text-muted">{est.date}</TableCell>
                   <TableCell>
                     <button
-                      onClick={() => handleDelete(est.id)}
-                      className="p-1.5 rounded hover:bg-midnight text-text-muted hover:text-red-400 transition-colors"
-                      title="Удалить"
+                      onClick={() => void deleteEstimate(estimate)}
+                      className="p-1.5 rounded hover:bg-midnight text-text-muted hover:text-red-400"
+                      title="Удалить смету"
                     >
                       <Trash2 size={14} />
                     </button>
                   </TableCell>
                 </TableRow>
               ))}
+              {!loading && estimates.length === 0 && (
+                <TableRow className="border-border-subtle">
+                  <TableCell colSpan={6} className="py-8 text-center text-sm text-text-muted">
+                    В базе нет смет
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-border-subtle">
-            <p className="text-xs text-text-muted">
-              Показано {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, estimates.length)} из {estimates.length}
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="p-1.5 rounded hover:bg-midnight text-text-muted hover:text-pure-white disabled:opacity-30 transition-colors"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
-                    p === page
-                      ? 'bg-guard-green text-white'
-                      : 'text-text-muted hover:bg-midnight hover:text-pure-white'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="p-1.5 rounded hover:bg-midnight text-text-muted hover:text-pure-white disabled:opacity-30 transition-colors"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-        )}
+        {loading && <div className="px-4 py-3 border-t border-border-subtle text-xs text-text-muted">Загрузка...</div>}
       </div>
     </div>
   )

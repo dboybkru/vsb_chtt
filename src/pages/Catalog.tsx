@@ -16,11 +16,9 @@ import {
   ArrowRight,
   FileText,
   Heart,
-  Loader2,
-  AlertCircle,
 } from 'lucide-react'
 import { useCatalog } from '@/hooks/useCatalog'
-import { tierColorClass, type Product } from '@/data/products'
+import { tierColorClass, type Brand, type Category, type Product } from '@/data/products'
 import { cn } from '@/lib/utils'
 
 const easeSnap = [0.16, 1, 0.3, 1] as [number, number, number, number]
@@ -32,14 +30,14 @@ function CategoryPills({
   active,
   onChange,
   counts,
-  categories,
+  options,
 }: {
   active: string
-  onChange: (c: string | 'Все') => void
+  onChange: (c: Category | 'Все') => void
   counts: Record<string, number>
-  categories: string[]
+  options: Category[]
 }) {
-  const allPills = ['Все', ...categories]
+  const allPills = ['Все', ...options]
   return (
     <div className="flex flex-wrap gap-2 mt-6">
       {allPills.map((pill, i) => {
@@ -50,7 +48,7 @@ function CategoryPills({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: i * 0.06, ease: easeSnap }}
-            onClick={() => onChange(pill)}
+            onClick={() => onChange(pill as Category | 'Все')}
             className={cn(
               'px-4 py-2 rounded-full text-xs font-medium uppercase tracking-[0.05em] transition-all duration-200 border',
               isActive
@@ -77,11 +75,11 @@ function CategoryPills({
 function BrandFilter({
   selected,
   toggle,
-  brands,
+  options,
 }: {
   selected: string[]
-  toggle: (b: string) => void
-  brands: string[]
+  toggle: (b: Brand) => void
+  options: Brand[]
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -116,7 +114,7 @@ function BrandFilter({
             transition={{ duration: 0.2, ease: easeSnap }}
             className="absolute top-full left-0 mt-2 w-56 bg-charcoal border border-border-subtle rounded-xl shadow-2xl z-50 p-2"
           >
-            {brands.map((brand) => (
+            {options.map((brand) => (
               <label
                 key={brand}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-pure-white/5 transition-colors"
@@ -701,6 +699,7 @@ export default function Catalog() {
     viewMode,
     setViewMode,
     products,
+    allProducts,
     totalCount,
     hasMore,
     loadMore,
@@ -717,12 +716,8 @@ export default function Catalog() {
     itemCount,
     isInEstimate,
     getQuantity,
-    isLoading,
-    apiError,
-    isLoadingMore,
-    availableBrands,
-    availableCategories,
-    categoryCounts,
+    isLoadingCatalog,
+    catalogError,
   } = useCatalog()
 
   const [filterSticky, setFilterSticky] = useState(false)
@@ -737,6 +732,14 @@ export default function Catalog() {
     return () => observer.disconnect()
   }, [])
 
+  const categoryCounts = allProducts.reduce(
+    (acc, p) => {
+      acc[p.category] = (acc[p.category] ?? 0) + 1
+      return acc
+    },
+    {} as Record<string, number>
+  )
+
   const gridCols =
     viewMode === 'grid'
       ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
@@ -745,6 +748,8 @@ export default function Catalog() {
         : 'grid-cols-1'
 
   const shownCount = products.length
+  const categoryOptions = Array.from(new Set(allProducts.map((product) => product.category))).sort((a, b) => a.localeCompare(b, 'ru'))
+  const brandOptions = Array.from(new Set(allProducts.map((product) => product.brand))).sort((a, b) => a.localeCompare(b, 'ru'))
 
   return (
     <div className="min-h-[100dvh] bg-deep-navy">
@@ -787,7 +792,7 @@ export default function Catalog() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="font-mono text-[32px] font-semibold text-guard-green leading-none"
             >
-              {isLoading ? '...' : `${totalCount} товаров`}
+              {totalCount} товаров
             </motion.span>
           </div>
 
@@ -796,7 +801,7 @@ export default function Catalog() {
             active={activeCategory}
             onChange={setActiveCategory}
             counts={categoryCounts}
-            categories={availableCategories}
+            options={categoryOptions}
           />
         </div>
       </section>
@@ -829,7 +834,7 @@ export default function Catalog() {
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <BrandFilter selected={selectedBrands} toggle={toggleBrand} brands={availableBrands} />
+              <BrandFilter selected={selectedBrands} toggle={toggleBrand} options={brandOptions} />
               <SortFilter value={sort} onChange={setSort} />
 
               {/* View Toggle */}
@@ -870,106 +875,72 @@ export default function Catalog() {
         </div>
       </div>
 
-      {/* ========== Loading / Error States ========== */}
-      {isLoading && (
-        <section className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-20">
-          <div className="flex flex-col items-center justify-center py-24">
-            <Loader2 size={40} className="text-guard-green animate-spin mb-4" />
-            <p className="text-text-muted text-base">Загрузка каталога...</p>
-          </div>
-        </section>
-      )}
-
-      {apiError && !isLoading && (
-        <section className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-20">
-          <div className="flex flex-col items-center justify-center py-24">
-            <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
-              <AlertCircle size={24} className="text-red-400" />
-            </div>
-            <h3 className="font-display text-xl font-semibold text-pure-white mb-2">Ошибка загрузки</h3>
-            <p className="text-text-muted text-base mb-6 text-center max-w-md">{apiError}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-2.5 rounded-xl border border-guard-green text-guard-green text-sm font-medium hover:bg-guard-green/10 transition-colors"
-            >
-              Обновить страницу
-            </button>
-          </div>
-        </section>
-      )}
-
       {/* ========== Product Grid ========== */}
-      {!isLoading && !apiError && (
-        <section className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-20">
-          <AnimatePresence mode="wait">
-            {products.length === 0 ? (
-              <EmptyState key="empty" onReset={resetFilters} />
-            ) : (
-              <motion.div
-                key={`${activeCategory}-${selectedBrands.join(',')}-${sort}-${searchQuery}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                {/* Shown count */}
-                <div className="text-sm text-text-muted mb-6">
-                  Показано {shownCount} из {totalCount}
+      <section className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-20">
+        <AnimatePresence mode="wait">
+          {products.length === 0 ? (
+            <EmptyState key="empty" onReset={resetFilters} />
+          ) : (
+            <motion.div
+              key={`${activeCategory}-${selectedBrands.join(',')}-${sort}-${searchQuery}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              {/* Shown count */}
+              <div className="text-sm text-text-muted mb-6">
+                Показано {shownCount} из {totalCount}
+                {isLoadingCatalog && <span className="ml-2 text-guard-green">Загружаем каталог...</span>}
+                {catalogError && <span className="ml-2 text-caution-amber">Используется резервный каталог</span>}
+              </div>
+
+              {viewMode === 'list' ? (
+                <div className="space-y-4">
+                  {products.map((product, i) => (
+                    <ProductCardList
+                      key={product.id}
+                      product={product}
+                      index={i}
+                      inEstimate={isInEstimate(product.id)}
+                      quantity={getQuantity(product.id)}
+                      onAdd={addToEstimate}
+                      onUpdateQty={updateQuantity}
+                    />
+                  ))}
                 </div>
+              ) : (
+                <div className={cn('grid gap-6', gridCols)}>
+                  {products.map((product, i) => (
+                    <ProductCardGrid
+                      key={product.id}
+                      product={product}
+                      index={i}
+                      inEstimate={isInEstimate(product.id)}
+                      quantity={getQuantity(product.id)}
+                      onAdd={addToEstimate}
+                      onUpdateQty={updateQuantity}
+                    />
+                  ))}
+                </div>
+              )}
 
-                {viewMode === 'list' ? (
-                  <div className="space-y-4">
-                    {products.map((product, i) => (
-                      <ProductCardList
-                        key={product.id}
-                        product={product}
-                        index={i}
-                        inEstimate={isInEstimate(product.id)}
-                        quantity={getQuantity(product.id)}
-                        onAdd={addToEstimate}
-                        onUpdateQty={updateQuantity}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className={cn('grid gap-6', gridCols)}>
-                    {products.map((product, i) => (
-                      <ProductCardGrid
-                        key={product.id}
-                        product={product}
-                        index={i}
-                        inEstimate={isInEstimate(product.id)}
-                        quantity={getQuantity(product.id)}
-                        onAdd={addToEstimate}
-                        onUpdateQty={updateQuantity}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* Load More */}
-                {hasMore && (
-                  <div className="flex justify-center mt-10">
-                    <motion.button
-                      whileTap={{ scale: 0.98 }}
-                      onClick={loadMore}
-                      disabled={isLoadingMore}
-                      className="px-6 py-3 rounded-xl bg-charcoal border border-border-subtle text-pure-white text-sm font-medium hover:border-guard-green hover:text-guard-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                      {isLoadingMore && (
-                        <Loader2 size={16} className="animate-spin" />
-                      )}
-                      {isLoadingMore
-                        ? 'Загрузка...'
-                        : `Загрузить ещё ${Math.min(12, totalCount - shownCount)}`}
-                    </motion.button>
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </section>
-      )}
+              {/* Load More */}
+              {hasMore && (
+                <div className="flex justify-center mt-10">
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    onClick={loadMore}
+                    className="px-6 py-3 rounded-xl bg-charcoal border border-border-subtle text-pure-white text-sm font-medium hover:border-guard-green hover:text-guard-green transition-colors"
+                  >
+                    Загрузить ещё {Math.min(12, totalCount - shownCount)}
+                  </motion.button>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
 
       {/* ========== Floating Estimate Panel ========== */}
       <FloatingEstimatePanel

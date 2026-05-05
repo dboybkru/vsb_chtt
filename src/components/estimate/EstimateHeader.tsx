@@ -1,9 +1,11 @@
 import { motion } from 'framer-motion'
 import { Calculator, Download } from 'lucide-react'
 import { useEstimate } from './EstimateContext'
+import { exportEstimateToXlsx } from '@/lib/estimateExport'
 
 export default function EstimateHeader() {
-  const { itemCount, equipmentTotal, laborTotal, grandTotal } = useEstimate()
+  const estimate = useEstimate()
+  const { itemCount, equipmentTotal, laborTotal, grandTotal } = estimate
 
   return (
     <section className="relative pt-[72px]">
@@ -65,11 +67,11 @@ export default function EstimateHeader() {
             </div>
           </div>
           <button
-            onClick={() => window.print()}
+            onClick={() => exportEstimateToXlsx(estimate)}
             className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg gradient-guard text-white text-sm font-semibold hover:brightness-110 transition-all shrink-0"
           >
             <Download size={16} />
-            Скачать PDF
+            Скачать XLSX
           </button>
         </motion.div>
       </div>

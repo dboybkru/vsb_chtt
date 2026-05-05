@@ -14,6 +14,7 @@ import {
   MessageCircle,
 } from 'lucide-react'
 import * as AccordionPrimitive from '@radix-ui/react-accordion'
+import { phoneHref, useSiteSettings } from '@/lib/siteSettings'
 
 const easeSnap = [0.16, 1, 0.3, 1] as [number, number, number, number]
 
@@ -62,14 +63,14 @@ const emergencyContacts = [
   {
     icon: Truck,
     heading: 'Выездная бригада',
-    phone: '',
+    phone: '+7 (900) 123-45-67',
     desc: 'Оперативный выезд по Калининграду в течение 2 часов.',
     color: 'guard-green',
   },
   {
     icon: ShieldAlert,
     heading: 'Пульт охраны',
-    phone: '',
+    phone: '+7 (4012) 00-00-00',
     desc: 'Для клиентов с подключённой охранной сигнализацией.',
     color: 'caution-amber',
   },
@@ -106,6 +107,7 @@ const faqItems = [
 export default function Contact() {
   const [submitted, setSubmitted] = useState(false)
   const [selectedServices, setSelectedServices] = useState<string[]>([])
+  const settings = useSiteSettings()
 
   const toggleService = (svc: string) => {
     setSelectedServices((prev) =>
@@ -168,10 +170,10 @@ export default function Contact() {
               </span>
             </div>
             <a
-              href="tel:+74012393939"
+              href={phoneHref(settings.phone)}
               className="font-mono text-[32px] font-semibold text-guard-green leading-[1.1] tracking-[-0.02em] hover:brightness-110 transition-all animate-pulse-glow"
             >
-              +7 (4012) 39-39-39
+              {settings.phone}
             </a>
           </motion.div>
         </div>
@@ -374,7 +376,7 @@ export default function Contact() {
               <div className="flex items-start gap-3">
                 <MapPin size={20} className="text-guard-green mt-0.5 shrink-0" />
                 <p className="text-base text-text-dark">
-                  г. Калининград
+                  {settings.address}
                 </p>
               </div>
 
@@ -382,12 +384,14 @@ export default function Contact() {
                 <Phone size={20} className="text-guard-green mt-0.5 shrink-0" />
                 <div>
                   <a
-                    href="tel:+74012393939"
+                    href={phoneHref(settings.phone)}
                     className="block text-base text-guard-green font-medium"
                   >
-                    +7 (4012) 39-39-39
+                    {settings.phone}
                   </a>
-
+                  <span className="text-sm text-text-dark-secondary">
+                    +7 (900) 123-45-67
+                  </span>
                 </div>
               </div>
 
@@ -395,10 +399,10 @@ export default function Contact() {
                 <Mail size={20} className="text-guard-green mt-0.5 shrink-0" />
                 <div>
                   <a
-                    href="mailto:info@vsb39.ru"
+                    href={`mailto:${settings.email}`}
                     className="block text-base text-guard-green font-medium"
                   >
-                    info@vsb39.ru
+                    {settings.email}
                   </a>
                   <span className="text-sm text-text-dark-secondary">
                     sales@vsb39.ru
@@ -410,7 +414,7 @@ export default function Contact() {
                 <Clock size={20} className="text-guard-green mt-0.5 shrink-0" />
                 <div>
                   <p className="text-base text-text-dark">
-                    Пн–Пт: 9:00–18:00
+                    {settings.working_hours}
                   </p>
                   <p className="text-sm text-text-dark-secondary">
                     Сб: 10:00–14:00
@@ -435,7 +439,7 @@ export default function Contact() {
               className="flex items-center gap-4 pt-4"
             >
               <a
-                href="https://t.me/vsb39"
+                href={settings.telegram}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-10 h-10 rounded-full bg-guard-green flex items-center justify-center text-white hover:scale-110 transition-transform"
@@ -444,7 +448,7 @@ export default function Contact() {
                 <MessageCircle size={18} />
               </a>
               <a
-                href="https://wa.me/74012393939"
+                href={settings.whatsapp}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-10 h-10 rounded-full bg-guard-green flex items-center justify-center text-white hover:scale-110 transition-transform"
@@ -453,7 +457,7 @@ export default function Contact() {
                 <MessageCircle size={18} />
               </a>
               <a
-                href="https://vk.com/vsb39"
+                href={settings.vk}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-10 h-10 rounded-full bg-guard-green flex items-center justify-center text-white hover:scale-110 transition-transform"
@@ -479,7 +483,7 @@ export default function Contact() {
         >
           <iframe
             title="VSB39 Office Location"
-            src="https://www.openstreetmap.org/export/embed.html?bbox=20.4%2C54.68%2C20.55%2C54.74&layer=mapnik"
+            src="https://www.openstreetmap.org/export/embed.html?bbox=20.4%2C54.68%2C20.55%2C54.74&layer=mapnik&marker=54.71%2C20.475"
             className="w-full h-full border-0 grayscale-[50%]"
             loading="lazy"
           />
@@ -488,7 +492,7 @@ export default function Contact() {
               VSB39 — Ваша Система Безопасности
             </p>
             <p className="text-xs text-text-muted">
-              г. Калининград
+              {settings.address}
             </p>
           </div>
         </motion.div>
@@ -551,14 +555,12 @@ export default function Contact() {
                 <h3 className="font-display text-[20px] font-medium text-pure-white mb-2">
                   {ec.heading}
                 </h3>
-                {ec.phone && (
-                  <a
-                    href={`tel:${ec.phone.replace(/\D/g, '')}`}
-                    className={`font-mono text-base font-medium block mb-2 ${ec.color === 'caution-amber' ? 'text-caution-amber' : 'text-guard-green'}`}
-                  >
-                    {ec.phone}
-                  </a>
-                )}
+                <a
+                  href={`tel:${ec.phone.replace(/\D/g, '')}`}
+                  className={`font-mono text-base font-medium block mb-2 ${ec.color === 'caution-amber' ? 'text-caution-amber' : 'text-guard-green'}`}
+                >
+                  {ec.phone}
+                </a>
                 <p className="text-sm text-text-muted">{ec.desc}</p>
               </motion.div>
             ))}

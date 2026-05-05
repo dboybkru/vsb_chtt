@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { apiRequest, type MaterialsResponse } from '@/lib/api'
 
 interface PreviewRow {
   id: number
@@ -24,20 +25,15 @@ interface PreviewRow {
 }
 
 const PRICE_LEVELS = ['Розница', 'Инсталлятор', 'Опт', 'Крупный опт', 'Партнёрская']
-
-const samplePreview: PreviewRow[] = [
-  { id: 1, name: 'DS-2CD2143G2-I', sku: 'HIK-001', retail: '12 500 ₽', installer: '10 800 ₽', wholesale: '9 200 ₽' },
-  { id: 2, name: 'DS-2CD2347G2-LU', sku: 'HIK-002', retail: '18 900 ₽', installer: '16 500 ₽', wholesale: '14 100 ₽' },
-  { id: 3, name: 'DS-7616NI-K2', sku: 'HIK-003', retail: '45 000 ₽', installer: '39 000 ₽', wholesale: '33 000 ₽' },
-  { id: 4, name: 'DS-K1T671M', sku: 'HIK-004', retail: '32 500 ₽', installer: '28 000 ₽', wholesale: '24 000 ₽' },
-  { id: 5, name: 'RVi-1NCT2023', sku: 'RVI-001', retail: '8 900 ₽', installer: '7 700 ₽', wholesale: '6 500 ₽' },
-]
+const CHUNK_SIZE = 128 * 1024
+const DIRECT_UPLOAD_LIMIT = 512 * 1024
 
 const PriceUpload: FC = () => {
   const [files, setFiles] = useState<File[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [parsing, setParsing] = useState(false)
+  const [statusText, setStatusText] = useState('')
   const [previewData, setPreviewData] = useState<PreviewRow[]>([])
   const [sheetName, setSheetName] = useState('Sheet1')
   const [headerRow, setHeaderRow] = useState('1')
@@ -62,43 +58,131 @@ const PriceUpload: FC = () => {
     e.preventDefault()
     setIsDragOver(false)
     const dropped = Array.from(e.dataTransfer.files).filter(
-      (f) => f.name.match(/\.(xlsx|xls|csv|json)$/i)
+      (f) => f.name.match(/\.(xlsx|xls|pdf)$/i)
     )
     if (dropped.length) {
       setFiles((prev) => [...prev, ...dropped])
-      simulateUpload(dropped.length)
+      void importFiles(dropped)
     }
   }, [])
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []).filter(
-      (f) => f.name.match(/\.(xlsx|xls|csv|json)$/i)
+      (f) => f.name.match(/\.(xlsx|xls|pdf)$/i)
     )
     if (selected.length) {
       setFiles((prev) => [...prev, ...selected])
-      simulateUpload(selected.length)
+      void importFiles(selected)
     }
   }, [])
 
-  const simulateUpload = (count: number) => {
-    setUploadProgress(0)
-    let progress = 0
-    const interval = setInterval(() => {
-      progress += 100 / (count * 5)
-      if (progress >= 100) {
-        progress = 100
-        clearInterval(interval)
-        setTimeout(() => {
-          setUploadProgress(0)
-          setParsing(true)
-          setTimeout(() => {
-            setParsing(false)
-            setPreviewData(samplePreview)
-          }, 800)
-        }, 400)
+  const importFiles = async (selectedFiles: File[]) => {
+    setUploadProgress(5)
+    setParsing(true)
+    setStatusText('Загружаем и парсим прайс...')
+    setPreviewData([])
+
+    try {
+      let imported = 0
+      let skipped = 0
+      let enriched = 0
+      for (let index = 0; index < selectedFiles.length; index += 1) {
+        const file = selectedFiles[index]
+        if (!file.name.match(/\.(xlsx|xls|pdf)$/i)) {
+          throw new Error('Сейчас поддерживаются Excel (.xlsx, .xls) и PDF. CSV/JSON подключу отдельным парсером.')
+        }
+        const result = await importPriceFile(file)
+        imported += result.imported || 0
+        skipped += result.skipped || 0
+        enriched += result.enriched || 0
+        setUploadProgress(Math.round(((index + 1) / selectedFiles.length) * 100))
       }
-      setUploadProgress(Math.min(progress, 100))
-    }, 100)
+
+      if (extractPhotos && imported > 0 && enriched < imported) {
+        setStatusText('Пробуем найти больше фото для новых позиций с точностью от 70%...')
+        const photoResult = await apiRequest<{ updated: number; price_checked?: number }>('/materials/enrich-photos', {
+          method: 'POST',
+          body: JSON.stringify({ limit: Math.min(imported, 1000), min_score: 0.7, check_prices: true }),
+        })
+        enriched += photoResult.updated || 0
+      }
+
+      const materials = await apiRequest<MaterialsResponse>('/materials?item_type=equipment&limit=5&offset=0')
+      setPreviewData(
+        materials.items.map((item) => ({
+          id: item.id,
+          name: item.name,
+          sku: item.sku || String(item.id),
+          retail: `${Math.round(item.price).toLocaleString('ru-RU')} ₽`,
+          installer: '-',
+          wholesale: '-',
+        })),
+      )
+      setStatusText(`Импортировано: ${imported}, пропущено: ${skipped}, фото найдено: ${enriched}`)
+    } catch (error) {
+      setStatusText(error instanceof Error ? error.message : 'Не удалось импортировать прайс')
+    } finally {
+      setParsing(false)
+      setUploadProgress(0)
+    }
+  }
+
+  const importPriceFile = async (file: File) => {
+    if (file.name.match(/\.(xlsx|xls)$/i) && file.size > DIRECT_UPLOAD_LIMIT) {
+      setStatusText('Большой Excel загружаем частями, чтобы не упереться в лимит HTTP 413...')
+      return importPriceFileInChunks(file)
+    }
+
+    const form = new FormData()
+    form.append('file', file)
+    form.append('search_photos', String(extractPhotos))
+    try {
+      return await apiRequest<{ imported: number; skipped: number; enriched?: number }>('/materials/import-ai', {
+        method: 'POST',
+        body: form,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : ''
+      if (!message.includes('413') || !file.name.match(/\.(xlsx|xls)$/i)) throw error
+      setStatusText('Сервер отклонил большой файл одним запросом. Загружаем прайс частями...')
+      return importPriceFileInChunks(file)
+    }
+  }
+
+  const importPriceFileInChunks = async (file: File) => {
+    const total = Math.ceil(file.size / CHUNK_SIZE)
+    const uploadId = `${Date.now()}-${crypto.randomUUID?.() || Math.random().toString(36).slice(2)}`
+    let finalResult: { imported: number; skipped: number; enriched?: number } | null = null
+
+    for (let index = 0; index < total; index += 1) {
+      setStatusText(`Загружаем часть ${index + 1} из ${total}...`)
+      const chunk = file.slice(index * CHUNK_SIZE, Math.min(file.size, (index + 1) * CHUNK_SIZE))
+      const form = new FormData()
+      form.append('upload_id', uploadId)
+      form.append('index', String(index))
+      form.append('total', String(total))
+      form.append('filename', file.name)
+      form.append('search_photos', String(extractPhotos))
+      form.append('chunk', chunk, `${file.name}.part${index}`)
+      const response = await apiRequest<{ imported?: number; skipped?: number; enriched?: number; status?: string }>(
+        '/materials/import-ai-chunk',
+        {
+          method: 'POST',
+          body: form,
+        },
+      )
+      setUploadProgress(Math.max(5, Math.round(((index + 1) / total) * 100)))
+      if (response.status === 'ok' || typeof response.imported === 'number') {
+        finalResult = {
+          imported: response.imported || 0,
+          skipped: response.skipped || 0,
+          enriched: response.enriched || 0,
+        }
+      }
+    }
+
+    if (!finalResult) throw new Error('Файл загружен частями, но backend не вернул результат импорта')
+    return finalResult
   }
 
   const removeFile = (index: number) => {
@@ -135,13 +219,13 @@ const PriceUpload: FC = () => {
                 Перетащите файлы сюда
               </h3>
               <p className="text-sm text-text-muted">
-                XLSX, XLS, CSV, JSON — до 50 МБ
+                XLSX, XLS, PDF — до 50 МБ
               </p>
               <input
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".xlsx,.xls,.csv,.json"
+                accept=".xlsx,.xls,.pdf"
                 className="hidden"
                 onChange={handleFileSelect}
               />
@@ -204,7 +288,13 @@ const PriceUpload: FC = () => {
 
           {parsing && (
             <div className="bg-charcoal rounded-xl border border-border-subtle p-4 text-center">
-              <p className="text-sm text-text-body">Парсинг файла...</p>
+              <p className="text-sm text-text-body">{statusText || 'Парсинг файла...'}</p>
+            </div>
+          )}
+
+          {!parsing && statusText && (
+            <div className="bg-charcoal rounded-xl border border-border-subtle p-4 text-center">
+              <p className="text-sm text-text-body">{statusText}</p>
             </div>
           )}
 
@@ -257,9 +347,14 @@ const PriceUpload: FC = () => {
               </div>
               <div className="flex items-center gap-3">
                 <Switch checked={extractPhotos} onCheckedChange={setExtractPhotos} />
-                <Label className="text-xs text-text-muted">Извлекать фото</Label>
+                <Label className="text-xs text-text-muted">
+                  Найти фото в интернете
+                </Label>
               </div>
             </div>
+            <p className="text-xs text-text-muted">
+              Фото не берём из прайса: ищем по наименованию. Для Optimus/Оптимус сначала optimus-cctv.ru, для Bolid/Болид сначала bolid.ru, затем tinko.ru.
+            </p>
 
             {/* Price levels */}
             <div className="space-y-2">
@@ -338,7 +433,7 @@ const PriceUpload: FC = () => {
           {previewData.length > 0 && (
             <Button className="w-full gradient-guard text-white hover:brightness-110">
               <Save size={16} className="mr-2" />
-              Сохранить в каталог
+              Уже сохранено в каталог
             </Button>
           )}
         </div>

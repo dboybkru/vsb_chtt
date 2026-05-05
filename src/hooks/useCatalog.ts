@@ -1,5 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { mapMaterialToProduct, type Product, type Category, type Brand } from '@/data/products'
+import {
+  products as fallbackProducts,
+  normalizeExternalProduct,
+  type ExternalCatalogProduct,
+  type Product,
+  type Category,
+  type Brand,
+} from '@/data/products'
+import { apiRequest, type MaterialsResponse } from '@/lib/api'
 
 export type SortOption = 'default' | 'price-asc' | 'price-desc' | 'name-asc'
 export type ViewMode = 'grid' | 'compact' | 'list'
@@ -14,53 +22,106 @@ export interface EstimateState {
   includeLabor: boolean
 }
 
-const STORAGE_KEY = 'vsb39_cart'
+const STORAGE_KEY = 'vsb39_estimate'
 const ITEMS_PER_PAGE = 12
-const API_PAGE_SIZE = 50
 
-function loadEstimateFromStorage(products: Product[]): EstimateState {
+const RU_TO_EN_LAYOUT: Record<string, string> = {
+  й: 'q', ц: 'w', у: 'e', к: 'r', е: 't', н: 'y', г: 'u', ш: 'i', щ: 'o', з: 'p', х: '[', ъ: ']',
+  ф: 'a', ы: 's', в: 'd', а: 'f', п: 'g', р: 'h', о: 'j', л: 'k', д: 'l', ж: ';', э: "'",
+  я: 'z', ч: 'x', с: 'c', м: 'v', и: 'b', т: 'n', ь: 'm', б: ',', ю: '.', ё: '`',
+}
+const EN_TO_RU_LAYOUT = Object.fromEntries(Object.entries(RU_TO_EN_LAYOUT).map(([ru, en]) => [en, ru])) as Record<string, string>
+const LATIN_TO_CYRILLIC_LOOKALIKE: Record<string, string> = {
+  a: 'а', b: 'в', c: 'с', e: 'е', h: 'н', k: 'к', m: 'м', o: 'о', p: 'р', t: 'т', x: 'х', y: 'у',
+}
+const CYRILLIC_TO_LATIN_LOOKALIKE = Object.fromEntries(Object.entries(LATIN_TO_CYRILLIC_LOOKALIKE).map(([latin, cyrillic]) => [cyrillic, latin])) as Record<string, string>
+
+const SEARCH_SYNONYMS: Record<string, string[]> = {
+  камера: ['камера', 'камеры', 'видеокамера', 'видеокамеры'],
+  камеры: ['камера', 'камеры', 'видеокамера', 'видеокамеры'],
+  видеокамера: ['камера', 'камеры', 'видеокамера', 'видеокамеры'],
+  регистратор: ['регистратор', 'регистраторы', 'видеорегистратор', 'nvr', 'dvr'],
+  регистр: ['регистратор', 'регистраторы', 'видеорегистратор', 'nvr', 'dvr'],
+  видеорегистратор: ['регистратор', 'регистраторы', 'видеорегистратор', 'nvr', 'dvr'],
+  скуд: ['скуд', 'считыватель', 'контроллер', 'замок'],
+  ибп: ['ибп', 'источник', 'блок питания', 'аккумулятор'],
+  hdd: ['hdd', 'жд', 'диск', 'жесткий'],
+  жд: ['hdd', 'жд', 'диск', 'жесткий'],
+}
+
+function normalizeSearch(value: string) {
+  return value.toLowerCase().replace(/ё/g, 'е').replace(/[^0-9a-zа-я]+/g, ' ').trim()
+}
+
+function switchLayout(value: string, map: Record<string, string>) {
+  return value.toLowerCase().split('').map((char) => map[char] ?? char).join('')
+}
+
+function queryGroups(query: string) {
+  return normalizeSearch(query)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => {
+      const variants = new Set<string>([
+        token,
+        switchLayout(token, RU_TO_EN_LAYOUT),
+        switchLayout(token, EN_TO_RU_LAYOUT),
+        switchLayout(token, LATIN_TO_CYRILLIC_LOOKALIKE),
+        switchLayout(token, CYRILLIC_TO_LATIN_LOOKALIKE),
+        ...(SEARCH_SYNONYMS[token] || []),
+      ])
+      return Array.from(variants).map(normalizeSearch).filter(Boolean)
+    })
+}
+
+function productSearchText(product: Product) {
+  return normalizeSearch([
+    product.name,
+    product.sku,
+    product.brand,
+    product.category,
+    product.description,
+  ].join(' '))
+}
+
+function productSearchScore(product: Product, query: string, groups: string[][]) {
+  const name = normalizeSearch(product.name)
+  const sku = normalizeSearch(product.sku)
+  const brand = normalizeSearch(product.brand)
+  const text = productSearchText(product)
+  const normalizedQuery = normalizeSearch(query)
+  if (!groups.every((group) => group.some((term) => text.includes(term)))) return -1
+  let score = 0
+  if (sku === normalizedQuery) score += 500
+  if (name === normalizedQuery) score += 450
+  if (sku.includes(normalizedQuery)) score += 220
+  if (name.startsWith(normalizedQuery)) score += 200
+  if (name.includes(normalizedQuery)) score += 140
+  if (brand.includes(normalizedQuery)) score += 80
+  for (const group of groups) {
+    if (group.some((term) => name.includes(term))) score += 40
+    if (group.some((term) => sku.includes(term))) score += 60
+  }
+  return score
+}
+
+function loadEstimateFromStorage(): EstimateState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
-      const parsed = JSON.parse(raw)
-      // New format: full objects with id
-      if (parsed.items && parsed.items.length > 0 && parsed.items[0].id !== undefined && parsed.items[0].productId === undefined) {
-        const items = parsed.items
-          .map((item: any) => {
-            const product = products.find((p) => p.id === item.id)
-            if (product) {
-              return { product, quantity: item.quantity || 1 }
-            }
-            // Fallback: reconstruct Product from stored fields
-            const synthetic: Product = {
-              id: item.id || '',
-              name: item.name || '',
-              sku: item.sku || '',
-              brand: item.brand || '',
-              price: item.price || 0,
-              image: item.image || '',
-              category: item.category || '',
-              description: '',
-              priceTier: 'Розница',
-            }
-            return { product: synthetic, quantity: item.quantity || 1 }
-          })
-          .filter((item: any): item is CartItem => item !== null)
-        return { items, includeLabor: parsed.includeLabor ?? false }
+      const parsed = JSON.parse(raw) as {
+        items?: Array<{ product?: Product; quantity?: number } & Partial<Product>>
+        includeLabor?: boolean
       }
-      // Old format: productId only
-      if (parsed.items && parsed.items.length > 0 && parsed.items[0].productId !== undefined) {
-        const items = parsed.items
-          .map((item: any) => {
-            const product = products.find((p) => p.id === item.productId)
-            return product ? { product, quantity: item.quantity } : null
-          })
-          .filter((item: any): item is CartItem => item !== null)
-        return { items, includeLabor: parsed.includeLabor ?? false }
-      }
-      if (parsed.items) {
-        return { items: [], includeLabor: parsed.includeLabor ?? false }
-      }
+      const items = parsed.items
+        ?.map((item) => {
+          const product = item.product || (
+            item.id && item.name && item.sku ? item as Product : null
+          )
+          return product ? { product, quantity: item.quantity } : null
+        })
+        .filter((item): item is CartItem => Boolean(item?.product && item.quantity && item.quantity > 0)) ?? []
+      return { items, includeLabor: parsed.includeLabor ?? false }
     }
   } catch {
     // ignore
@@ -72,16 +133,12 @@ function saveEstimateToStorage(state: EstimateState) {
   try {
     const serializable = {
       items: state.items.map((item) => ({
-        id: item.product.id,
-        name: item.product.name,
-        sku: item.product.sku,
-        brand: item.product.brand,
-        price: item.product.price,
+        ...item.product,
         quantity: item.quantity,
-        image: item.product.image,
-        category: item.product.category,
-        unit: 'шт.',
       })),
+      labor: { auto: true, complexity: 'medium', manualCost: 0 },
+      services: { design: false, training: false, commissioning: false, warranty: false },
+      params: { type: '', area: 0, cameras: 0, accessPoints: 0, fireAlarm: false, network: false, address: '', phone: '', name: '', notes: '' },
       includeLabor: state.includeLabor,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable))
@@ -91,18 +148,13 @@ function saveEstimateToStorage(state: EstimateState) {
 }
 
 export function useCatalog() {
-  // API data
-  const [allApiProducts, setAllApiProducts] = useState<Product[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [apiError, setApiError] = useState<string | null>(null)
-
-  // Infinite scroll API state
-  const [apiOffset, setApiOffset] = useState(0)
-  const [hasMoreApi, setHasMoreApi] = useState(true)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [allProducts, setAllProducts] = useState<Product[]>(fallbackProducts)
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true)
+  const [catalogError, setCatalogError] = useState<string | null>(null)
+  const initialCategory = new URLSearchParams(window.location.search).get('category')
 
   // Filters
-  const [activeCategory, setActiveCategory] = useState<Category | 'Все'>('Все')
+  const [activeCategory, setActiveCategory] = useState<Category | 'Все'>(initialCategory || 'Все')
   const [selectedBrands, setSelectedBrands] = useState<Brand[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [sort, setSort] = useState<SortOption>('default')
@@ -115,88 +167,55 @@ export function useCatalog() {
   const [estimate, setEstimate] = useState<EstimateState>({ items: [], includeLabor: false })
   const [isEstimateLoaded, setIsEstimateLoaded] = useState(false)
 
-  // Reset visible count when filters change
+  // Load from localStorage on mount
   useEffect(() => {
-    setVisibleCount(ITEMS_PER_PAGE)
-  }, [activeCategory, selectedBrands, searchQuery, sort])
-
-  // Load API data on mount (first batch)
-  useEffect(() => {
-    setIsLoading(true)
-    setApiError(null)
-    fetch(`/api/materials?limit=${API_PAGE_SIZE}&offset=0`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-      .then((data) => {
-        const items = data.items || data
-        const mapped = Array.isArray(items) ? items.map(mapMaterialToProduct) : []
-        setAllApiProducts(mapped)
-        setApiOffset(mapped.length)
-        setHasMoreApi(data.has_more ?? (Array.isArray(items) && items.length >= API_PAGE_SIZE))
-      })
-      .catch((err) => setApiError(err.message || 'Ошибка загрузки каталога'))
-      .finally(() => setIsLoading(false))
+    const loaded = loadEstimateFromStorage()
+    setEstimate(loaded)
+    setIsEstimateLoaded(true)
   }, [])
 
-  // Background load all remaining products
   useEffect(() => {
-    if (allApiProducts.length === 0) return
-    const loadAll = async () => {
-      let offset = allApiProducts.length
-      const allItems = [...allApiProducts]
-      while (true) {
-        try {
-          const res = await fetch(`/api/materials?limit=500&offset=${offset}`)
-          const data = await res.json()
-          const items = (data.items || []).map(mapMaterialToProduct)
-          if (items.length === 0) break
-          allItems.push(...items)
-          offset += items.length
-          setAllApiProducts([...allItems])
-          setApiOffset(offset)
-          if (!data.has_more) break
-        } catch (e) {
-          console.error('Background load error:', e)
-          break
+    let cancelled = false
+
+    async function loadCatalog() {
+      try {
+        const firstPage = await apiRequest<MaterialsResponse>('/materials?item_type=equipment&limit=500&offset=0')
+        const pages = [firstPage]
+        let offset = firstPage.offset + firstPage.limit
+        while (firstPage.total > offset && pages.length < 10) {
+          pages.push(await apiRequest<MaterialsResponse>(`/materials?item_type=equipment&limit=500&offset=${offset}`))
+          offset += 500
         }
+        const external = pages.flatMap((page) => page.items)
+          .map((item, index) => normalizeExternalProduct(item, index))
+          .filter((item): item is Product => item !== null)
+
+        if (!cancelled && external.length > 0) {
+          const existingIds = new Set(external.map((item) => item.id))
+          setAllProducts([...external, ...fallbackProducts.filter((item) => !existingIds.has(item.id))])
+        }
+      } catch (error) {
+        try {
+          const response = await fetch('/data/optimus-products.json', { cache: 'no-store' })
+          if (!response.ok) throw new Error(`HTTP ${response.status}`)
+          const raw = await response.json() as ExternalCatalogProduct[]
+          const external = raw
+            .map((item, index) => normalizeExternalProduct(item, index))
+            .filter((item): item is Product => item !== null)
+          if (!cancelled) setAllProducts(external)
+        } catch {
+          if (!cancelled) setCatalogError(error instanceof Error ? error.message : 'Не удалось загрузить каталог')
+        }
+      } finally {
+        if (!cancelled) setIsLoadingCatalog(false)
       }
     }
-    loadAll()
-  }, [allApiProducts.length > 0])
 
-  // Load more from API (for user-triggered scroll load)
-  const loadMoreFromApi = useCallback(() => {
-    if (isLoadingMore || !hasMoreApi) return
-    setIsLoadingMore(true)
-    fetch(`/api/materials?limit=${API_PAGE_SIZE}&offset=${apiOffset}`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-      .then((data) => {
-        const items = data.items || []
-        const mapped = Array.isArray(items) ? items.map(mapMaterialToProduct) : []
-        setAllApiProducts((prev) => [...prev, ...mapped])
-        setApiOffset((prev) => prev + mapped.length)
-        setHasMoreApi(data.has_more ?? (Array.isArray(items) && items.length >= API_PAGE_SIZE))
-      })
-      .catch((err) => {
-        console.error('API load error:', err)
-        setApiError(err.message || 'Ошибка дозагрузки каталога')
-      })
-      .finally(() => setIsLoadingMore(false))
-  }, [apiOffset, isLoadingMore, hasMoreApi])
-
-  // Load estimate from storage when allApiProducts available
-  useEffect(() => {
-    if (allApiProducts.length > 0 && !isEstimateLoaded) {
-      const loaded = loadEstimateFromStorage(allApiProducts)
-      setEstimate(loaded)
-      setIsEstimateLoaded(true)
+    loadCatalog()
+    return () => {
+      cancelled = true
     }
-  }, [allApiProducts, isEstimateLoaded])
+  }, [])
 
   // Save to localStorage whenever estimate changes
   useEffect(() => {
@@ -205,24 +224,9 @@ export function useCatalog() {
     }
   }, [estimate, isEstimateLoaded])
 
-  // Migrate old data from 'vsb39_estimate' to 'vsb39_cart'
-  useEffect(() => {
-    const oldRaw = localStorage.getItem('vsb39_estimate')
-    if (oldRaw) {
-      try {
-        const old = JSON.parse(oldRaw)
-        if (old.items && old.items.length > 0 && old.items[0].unit !== undefined && old.items[0].productId === undefined) {
-          // This is cart data, migrate
-          localStorage.setItem(STORAGE_KEY, oldRaw)
-          localStorage.removeItem('vsb39_estimate')
-        }
-      } catch { /* ignore */ }
-    }
-  }, [])
-
   // Filtered products
   const filteredProducts = useMemo(() => {
-    let result = [...allApiProducts]
+    let result = [...allProducts]
 
     if (activeCategory !== 'Все') {
       result = result.filter((p) => p.category === activeCategory)
@@ -233,14 +237,12 @@ export function useCatalog() {
     }
 
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim()
-      result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.sku.toLowerCase().includes(q) ||
-          p.brand.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q)
-      )
+      const groups = queryGroups(searchQuery)
+      result = result
+        .map((product) => ({ product, score: productSearchScore(product, searchQuery, groups) }))
+        .filter((item) => item.score >= 0)
+        .sort((a, b) => b.score - a.score || a.product.price - b.product.price)
+        .map((item) => item.product)
     }
 
     switch (sort) {
@@ -258,52 +260,14 @@ export function useCatalog() {
     }
 
     return result
-  }, [activeCategory, selectedBrands, searchQuery, sort, allApiProducts])
+  }, [activeCategory, allProducts, selectedBrands, searchQuery, sort])
 
   const paginatedProducts = useMemo(() => {
     return filteredProducts.slice(0, visibleCount)
   }, [filteredProducts, visibleCount])
 
-  const hasMoreFiltered = filteredProducts.length > visibleCount
-  const hasMore = hasMoreFiltered || hasMoreApi
+  const hasMore = filteredProducts.length > visibleCount
   const totalCount = filteredProducts.length
-
-  // Dynamic brands and categories
-  const availableBrands = useMemo(() => {
-    return [...new Set(allApiProducts.map((p) => p.brand))].sort()
-  }, [allApiProducts])
-
-  const availableCategories = useMemo(() => {
-    return [...new Set(allApiProducts.map((p) => p.category))].sort()
-  }, [allApiProducts])
-
-  // Category counts (without category filter, but with brand/search filters)
-  const categoryCounts = useMemo(() => {
-    let result = [...allApiProducts]
-
-    if (selectedBrands.length > 0) {
-      result = result.filter((p) => selectedBrands.includes(p.brand))
-    }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim()
-      result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.sku.toLowerCase().includes(q) ||
-          p.brand.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q)
-      )
-    }
-
-    return result.reduce(
-      (acc, p) => {
-        acc[p.category] = (acc[p.category] ?? 0) + 1
-        return acc
-      },
-      {} as Record<string, number>
-    )
-  }, [allApiProducts, selectedBrands, searchQuery])
 
   // Cart actions
   const addToEstimate = useCallback((product: Product) => {
@@ -359,11 +323,7 @@ export function useCatalog() {
 
   const loadMore = useCallback(() => {
     setVisibleCount((prev) => prev + ITEMS_PER_PAGE)
-    // If we're running out of filtered items and API has more, fetch next batch
-    if (!hasMoreFiltered && hasMoreApi) {
-      loadMoreFromApi()
-    }
-  }, [hasMoreFiltered, hasMoreApi, loadMoreFromApi])
+  }, [])
 
   const toggleBrand = useCallback((brand: Brand) => {
     setSelectedBrands((prev) =>
@@ -404,18 +364,13 @@ export function useCatalog() {
 
     // Products
     products: paginatedProducts,
+    allProducts,
     totalCount,
     hasMore,
     loadMore,
     resetFilters,
-
-    // API
-    isLoading,
-    apiError,
-    isLoadingMore,
-    availableBrands,
-    availableCategories,
-    categoryCounts,
+    isLoadingCatalog,
+    catalogError,
 
     // Estimate
     estimate,

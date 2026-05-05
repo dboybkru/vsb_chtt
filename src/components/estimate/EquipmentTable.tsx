@@ -1,12 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Minus, Plus, Trash2, ArrowRight } from 'lucide-react'
+import { Minus, Plus, Trash2, ArrowRight, Search, ShoppingCart } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useEstimate } from './EstimateContext'
+import { apiRequest, type MaterialsResponse } from '@/lib/api'
+import { normalizeExternalProduct, type Product } from '@/data/products'
 
 export default function EquipmentTable() {
-  const { items, updateQuantity, removeItem, equipmentTotal } = useEstimate()
+  const { items, updateQuantity, removeItem, addItem, equipmentTotal } = useEstimate()
   const [flashRow, setFlashRow] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<Product[]>([])
+  const [searching, setSearching] = useState(false)
 
   const handleQtyChange = (id: string, qty: number) => {
     if (qty < 1) return
@@ -15,8 +20,71 @@ export default function EquipmentTable() {
     setTimeout(() => setFlashRow(null), 300)
   }
 
+  useEffect(() => {
+    const text = query.trim()
+    if (text.length < 2) {
+      setResults([])
+      return
+    }
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
+      setSearching(true)
+      try {
+        const params = new URLSearchParams({ item_type: 'equipment', limit: '8', q: text })
+        const response = await apiRequest<MaterialsResponse>(`/materials?${params.toString()}`)
+        const next = response.items
+          .map((item, index) => normalizeExternalProduct(item, index))
+          .filter((item): item is Product => item !== null)
+        if (!cancelled) setResults(next)
+      } catch {
+        if (!cancelled) setResults([])
+      } finally {
+        if (!cancelled) setSearching(false)
+      }
+    }, 250)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [query])
+
   return (
     <section className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-6">
+        <div className="relative max-w-2xl">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Найти оборудование и добавить в смету..."
+            className="w-full rounded-xl border border-border-subtle bg-charcoal py-3 pl-11 pr-4 text-sm text-pure-white placeholder:text-text-muted/60 outline-none transition-all focus:border-guard-green focus:ring-4 focus:ring-guard-green/10"
+          />
+        </div>
+        {(results.length > 0 || searching) && (
+          <div className="mt-3 grid gap-2 max-w-3xl">
+            {results.map((product) => (
+              <button
+                key={product.id}
+                onClick={() => {
+                  addItem({ ...product, quantity: 1 })
+                  setQuery('')
+                  setResults([])
+                }}
+                className="flex items-center gap-3 rounded-xl border border-border-subtle bg-charcoal px-3 py-2 text-left hover:border-guard-green"
+              >
+                <img src={product.image} alt="" className="h-10 w-10 rounded object-cover bg-midnight" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-pure-white">{product.name}</p>
+                  <p className="text-xs text-text-muted">{product.sku} · {product.brand}</p>
+                </div>
+                <span className="font-mono text-sm text-guard-green">{product.price.toLocaleString('ru-RU')} ₽</span>
+                <ShoppingCart size={16} className="text-guard-green" />
+              </button>
+            ))}
+            {searching && <p className="text-sm text-text-muted">Ищу в базе...</p>}
+          </div>
+        )}
+      </div>
       <div className="overflow-x-auto">
         {items.length === 0 ? (
           <motion.div

@@ -25,6 +25,7 @@ import {
 import HeroGrid3D from '../components/HeroGrid3D'
 import ParticleCanvas from '../components/ParticleCanvas'
 import AIPreviewOrb from '../components/AIPreviewOrb'
+import { phoneHref, useSiteSettings } from '@/lib/siteSettings'
 
 /* ─── Animation Variants ─── */
 const containerVariants = {
@@ -154,10 +155,10 @@ const brands = ['HIKVISION', 'DAHUA', 'RVi', 'BOLID', 'РУБЕЖ', 'Cabeus']
 
 /* ─── Catalog Categories ─── */
 const catalogCategories = [
-  { image: '/catalog-camera-1.jpg', label: 'КАМЕРЫ', count: '120+ моделей', link: '/catalog?category=cameras' },
-  { image: '/catalog-nvr-1.jpg', label: 'РЕГИСТРАТОРЫ', count: '45+ моделей', link: '/catalog?category=nvr' },
-  { image: '/catalog-skud-1.jpg', label: 'СКУД', count: '80+ моделей', link: '/catalog?category=skud' },
-  { image: '/catalog-network-1.jpg', label: 'СЕТЕВОЕ ОБОРУДОВАНИЕ', count: '60+ моделей', link: '/catalog?category=network' },
+  { image: '/catalog-camera-1.jpg', label: 'КАМЕРЫ', count: 'из прайса Optimus', link: '/catalog?category=Камеры' },
+  { image: '/catalog-nvr-1.jpg', label: 'РЕГИСТРАТОРЫ', count: 'из прайса Optimus', link: '/catalog?category=Регистраторы' },
+  { image: '/catalog-skud-1.jpg', label: 'СКУД И ОПС', count: 'из прайса Optimus', link: '/catalog?category=СКУД' },
+  { image: '/catalog-network-1.jpg', label: 'КАБЕЛЬ И СЕТЬ', count: 'из прайса Optimus', link: '/catalog?category=Сеть' },
 ]
 
 /* ─── Metrics Data ─── */
@@ -213,19 +214,20 @@ const industries = [
    ═══════════════════════════════════════════ */
 export default function Home() {
   const heroRef = useRef<HTMLDivElement>(null)
+  const settings = useSiteSettings()
 
   return (
     <div className="relative">
       {/* ═══════ SECTION 1: HERO ═══════ */}
       <section
         ref={heroRef}
-        className="relative min-h-[100dvh] flex flex-col justify-center overflow-hidden"
+        className="relative min-h-[88dvh] flex flex-col justify-center overflow-hidden"
         style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 50%, rgba(0, 208, 132, 0.06) 0%, transparent 70%), #0A0E1A' }}
       >
         <HeroGrid3D />
         <ParticleCanvas />
 
-        <div className="relative z-10 max-w-[900px] px-[6vw] pt-[120px] pb-16">
+        <div className="relative z-10 max-w-[920px] px-[8vw] pt-[112px] pb-16">
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
@@ -239,18 +241,18 @@ export default function Home() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
-            className="font-display font-bold leading-[0.95] tracking-[-0.02em] break-words"
-            style={{ fontSize: 'clamp(48px, 7vw, 88px)' }}
+            className="font-display font-bold leading-[1.04]"
+            style={{ fontSize: 'clamp(42px, 5.6vw, 82px)' }}
           >
-            <span className="text-pure-white block">Защитим ваш бизнес</span>
-            <span className="gradient-guard-text block">на уровне технологий</span>
+            <span className="text-pure-white block">Защитим бизнес</span>
+            <span className="gradient-guard-text block">системами безопасности</span>
           </motion.h1>
 
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.8, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
-            className="text-lg text-text-body max-w-[560px] mt-6 leading-relaxed"
+            className="text-lg text-text-body max-w-[660px] mt-6 leading-relaxed"
           >
             Проектируем, монтируем и обслуживаем системы видеонаблюдения, контроля доступа, охранно-пожарной сигнализации и структурированных сетей. Работаем в Калининграде и области с 2016 года.
           </motion.p>
@@ -266,7 +268,7 @@ export default function Home() {
               className="inline-flex items-center gap-2 px-8 py-3.5 rounded-[10px] gradient-guard text-white font-semibold text-sm hover:brightness-110 transition-all"
             >
               <Calculator size={16} />
-              Предварительный расчет
+              Рассчитать смету
             </Link>
             <Link
               to="/catalog"
@@ -634,14 +636,14 @@ export default function Home() {
                 className="inline-flex items-center gap-2 px-10 py-4 rounded-xl gradient-guard text-white font-medium text-lg animate-cta-pulse hover:brightness-110 transition-all"
               >
                 <Calculator size={18} />
-                Предварительный расчет
+                Рассчитать смету
               </Link>
               <a
-                href="tel:+74012393939"
+                href={phoneHref(settings.phone)}
                 className="inline-flex items-center gap-2 px-8 py-4 rounded-xl border border-guard-green text-guard-green font-medium text-base hover:bg-guard-green/10 transition-colors"
               >
                 <Phone size={18} />
-                +7 (4012) 39-39-39
+                {settings.phone}
               </a>
             </motion.div>
             <motion.p variants={fadeUpVariants} className="text-sm text-text-muted">

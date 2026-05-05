@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Menu, X, Calculator, LayoutGrid } from 'lucide-react'
+import { useSiteSettings } from '@/lib/siteSettings'
 
 const navLinks = [
   { to: '/', label: 'Главная' },
@@ -15,6 +16,7 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const location = useLocation()
+  const settings = useSiteSettings()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -41,7 +43,7 @@ export default function Navbar() {
           {/* Logo */}
           <Link to="/" className="flex flex-col leading-tight">
             <span className="font-display font-bold text-[20px] text-guard-green tracking-tight">
-              VSB39
+              {settings.site_name}
             </span>
             <span className="text-[10px] text-text-muted tracking-[0.05em] uppercase">
               Ваша Система Безопасности

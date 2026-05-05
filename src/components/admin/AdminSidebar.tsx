@@ -5,6 +5,7 @@ import {
   Bot,
   Package,
   Calculator,
+  Wrench,
   Search,
   Settings,
   LogOut,
@@ -16,6 +17,7 @@ export type AdminSection =
   | 'ai'
   | 'catalog'
   | 'estimates'
+  | 'works'
   | 'seo'
   | 'settings'
 
@@ -30,6 +32,7 @@ const navItems: { id: AdminSection; label: string; icon: React.ReactNode }[] = [
   { id: 'ai', label: 'ИИ-Агент', icon: <Bot size={18} /> },
   { id: 'catalog', label: 'Каталог', icon: <Package size={18} /> },
   { id: 'estimates', label: 'Сметы', icon: <Calculator size={18} /> },
+  { id: 'works', label: 'Монтаж', icon: <Wrench size={18} /> },
   { id: 'seo', label: 'SEO', icon: <Search size={18} /> },
   { id: 'settings', label: 'Настройки', icon: <Settings size={18} /> },
 ]
