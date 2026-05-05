@@ -31,6 +31,7 @@ export interface ApiMaterial {
   photo_score?: number
   photo_status?: string
   product_url?: string
+  last_update?: string
 }
 
 export interface MaterialsResponse {

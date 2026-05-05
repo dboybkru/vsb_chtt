@@ -256,7 +256,7 @@ function ProductCardGrid({
       )}
     >
       {/* Image Area */}
-      <div className="relative w-full aspect-[4/3] overflow-hidden">
+      <Link to={`/catalog/${product.id}`} className="relative block w-full aspect-[4/3] overflow-hidden">
         <img
           src={product.image}
           alt={product.name}
@@ -268,16 +268,20 @@ function ProductCardGrid({
           {product.brand}
         </div>
         {/* Favorite */}
-        <button className="absolute top-2 right-2 p-1.5 rounded-full bg-midnight/60 text-text-muted hover:text-guard-green transition-colors">
+        <button
+          type="button"
+          onClick={(event) => event.preventDefault()}
+          className="absolute top-2 right-2 p-1.5 rounded-full bg-midnight/60 text-text-muted hover:text-guard-green transition-colors"
+        >
           <Heart size={16} />
         </button>
-      </div>
+      </Link>
 
       {/* Info Area */}
       <div className="p-4">
-        <h3 className="font-display font-medium text-base text-pure-white leading-snug line-clamp-2 mb-1">
+        <Link to={`/catalog/${product.id}`} className="font-display font-medium text-base text-pure-white leading-snug line-clamp-2 mb-1 hover:text-guard-green transition-colors">
           {product.name}
-        </h3>
+        </Link>
         <p className="text-xs text-text-muted mb-3">Артикул: {product.sku}</p>
 
         <div className="flex items-center justify-between mb-3">
@@ -380,7 +384,7 @@ function ProductCardList({
       )}
     >
       {/* Image */}
-      <div className="relative w-full sm:w-[200px] shrink-0 aspect-[4/3] sm:aspect-[4/3] rounded-lg overflow-hidden">
+      <Link to={`/catalog/${product.id}`} className="relative block w-full sm:w-[200px] shrink-0 aspect-[4/3] sm:aspect-[4/3] rounded-lg overflow-hidden">
         <img
           src={product.image}
           alt={product.name}
@@ -390,14 +394,14 @@ function ProductCardList({
         <div className="absolute top-0 left-0 bg-midnight text-guard-green text-[10px] font-medium uppercase tracking-[0.05em] px-2.5 py-1 rounded-br-lg">
           {product.brand}
         </div>
-      </div>
+      </Link>
 
       {/* Info */}
       <div className="flex-1 flex flex-col justify-between">
         <div>
-          <h3 className="font-display font-medium text-base text-pure-white leading-snug mb-1">
+          <Link to={`/catalog/${product.id}`} className="block font-display font-medium text-base text-pure-white leading-snug mb-1 hover:text-guard-green transition-colors">
             {product.name}
-          </h3>
+          </Link>
           <p className="text-xs text-text-muted mb-2">Артикул: {product.sku}</p>
           <p className="text-sm text-text-body mb-3 line-clamp-2">{product.description}</p>
           <span className={cn('inline-block px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide', tierColorClass[product.priceTier])}>

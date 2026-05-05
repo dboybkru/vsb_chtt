@@ -1,10 +1,12 @@
 import { Routes, Route } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import Layout from './components/Layout'
+import { EstimateProvider } from './components/estimate/EstimateContext'
 
 const Home = lazy(() => import('./pages/Home'))
 const Services = lazy(() => import('./pages/Services'))
 const Catalog = lazy(() => import('./pages/Catalog'))
+const ProductDetails = lazy(() => import('./pages/ProductDetails'))
 const Estimate = lazy(() => import('./pages/Estimate'))
 const AiAgent = lazy(() => import('./pages/AiAgent'))
 const Admin = lazy(() => import('./pages/Admin'))
@@ -20,20 +22,23 @@ const Loader = () => (
 
 export default function App() {
   return (
-    <Layout>
-      <Suspense fallback={<Loader />}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/services" element={<Services />} />
-          <Route path="/catalog" element={<Catalog />} />
-          <Route path="/estimate" element={<Estimate />} />
-          <Route path="/ai" element={<AiAgent />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/prices" element={<Prices />} />
-        </Routes>
-      </Suspense>
-    </Layout>
+    <EstimateProvider>
+      <Layout>
+        <Suspense fallback={<Loader />}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/services" element={<Services />} />
+            <Route path="/catalog" element={<Catalog />} />
+            <Route path="/catalog/:id" element={<ProductDetails />} />
+            <Route path="/estimate" element={<Estimate />} />
+            <Route path="/ai" element={<AiAgent />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/prices" element={<Prices />} />
+          </Routes>
+        </Suspense>
+      </Layout>
+    </EstimateProvider>
   )
 }
