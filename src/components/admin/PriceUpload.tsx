@@ -98,15 +98,6 @@ const PriceUpload: FC = () => {
         setUploadProgress(Math.round(((index + 1) / selectedFiles.length) * 100))
       }
 
-      if (extractPhotos && imported > 0 && enriched < imported) {
-        setStatusText('Пробуем найти больше фото для новых позиций с точностью от 70%...')
-        const photoResult = await apiRequest<{ updated: number; price_checked?: number }>('/materials/enrich-photos', {
-          method: 'POST',
-          body: JSON.stringify({ limit: Math.min(imported, 1000), min_score: 0.7, check_prices: true }),
-        })
-        enriched += photoResult.updated || 0
-      }
-
       const materials = await apiRequest<MaterialsResponse>('/materials?item_type=equipment&limit=5&offset=0')
       setPreviewData(
         materials.items.map((item) => ({
@@ -118,12 +109,28 @@ const PriceUpload: FC = () => {
           wholesale: '-',
         })),
       )
-      setStatusText(`Импортировано: ${imported}, пропущено: ${skipped}, фото найдено: ${enriched}`)
+      setStatusText(`Импортировано: ${imported}, пропущено: ${skipped}. Оборудование добавлено в базу.`)
+      if (extractPhotos && imported > 0 && enriched < imported) {
+        void startPhotoEnrichment(imported)
+      }
     } catch (error) {
       setStatusText(error instanceof Error ? error.message : 'Не удалось импортировать прайс')
     } finally {
       setParsing(false)
       setUploadProgress(0)
+    }
+  }
+
+  const startPhotoEnrichment = async (imported: number) => {
+    try {
+      setStatusText(`Импортировано: ${imported}. Фото ищутся в фоне, прайс уже сохранён.`)
+      await apiRequest('/materials/enrich-photos/background', {
+        method: 'POST',
+        body: JSON.stringify({ limit: Math.min(imported, 1000), min_score: 0.7, check_prices: true }),
+      })
+      setStatusText(`Импортировано: ${imported}. Поиск фото запущен в фоне, можно продолжать работу.`)
+    } catch {
+      setStatusText(`Импортировано: ${imported}. Фото не удалось запустить автоматически, но прайс сохранён.`)
     }
   }
 
@@ -135,7 +142,7 @@ const PriceUpload: FC = () => {
 
     const form = new FormData()
     form.append('file', file)
-    form.append('search_photos', String(extractPhotos))
+    form.append('search_photos', 'false')
     try {
       return await apiRequest<{ imported: number; skipped: number; enriched?: number }>('/materials/import-ai', {
         method: 'POST',
@@ -162,7 +169,7 @@ const PriceUpload: FC = () => {
       form.append('index', String(index))
       form.append('total', String(total))
       form.append('filename', file.name)
-      form.append('search_photos', String(extractPhotos))
+      form.append('search_photos', 'false')
       form.append('chunk', chunk, `${file.name}.part${index}`)
       const response = await apiRequest<{ imported?: number; skipped?: number; enriched?: number; status?: string }>(
         '/materials/import-ai-chunk',
