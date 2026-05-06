@@ -3,6 +3,8 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 
+window.sessionStorage.setItem('vsb39_build', '20260506-100601')
+
 createRoot(document.getElementById('root')!).render(
   <BrowserRouter>
     <App />

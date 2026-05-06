@@ -40,6 +40,10 @@ const metaByPath: Record<string, { title: string; description: string }> = {
     title: 'Политика конфиденциальности — VSB39',
     description: 'Политика обработки персональных данных посетителей сайта VSB39.',
   },
+  '/admin': {
+    title: 'Админ-панель — VSB39',
+    description: 'Административная панель VSB39 для управления каталогом, сметами и настройками сайта.',
+  },
 }
 
 function setMeta(name: string, content: string, property = false) {
@@ -68,7 +72,8 @@ export default function SEO() {
 
   useEffect(() => {
     const pathname = location.pathname
-    const basePath = pathname.startsWith('/catalog/') ? '/catalog' : pathname
+    const normalizedPathname = pathname !== '/' ? pathname.replace(/\/+$/, '') : pathname
+    const basePath = normalizedPathname.startsWith('/catalog/') ? '/catalog' : normalizedPathname
     const meta = metaByPath[basePath] || {
       title: 'Страница не найдена — VSB39',
       description: 'Запрошенная страница не найдена. Перейдите в каталог, услуги или свяжитесь с VSB39.',

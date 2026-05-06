@@ -48,10 +48,10 @@ function generateId() {
 function getFallbackResponse(text: string): string {
   const normalized = text.toLowerCase()
   if (
-    (normalized.includes('камера') || normalized.includes('оптимус') || normalized.includes('optimus')) &&
-    (normalized.includes('пропал') || normalized.includes('пропала') || normalized.includes('не вид') || normalized.includes('вайфай') || normalized.includes('wi-fi') || normalized.includes('wifi'))
+    normalized.includes('камера') || normalized.includes('оптимус') || normalized.includes('optimus') ||
+    normalized.includes('что делать') || normalized.includes('помоги')
   ) {
-    return 'Похоже, камера уже установлена и потеряла связь с приложением. Начните с простого: перезагрузите камеру и роутер, проверьте питание и индикаторы, затем убедитесь, что телефон подключен к той же Wi-Fi сети 2.4 ГГц. Если камера Optimus, откройте приложение/утилиту производителя и попробуйте локальный поиск устройства в сети. Если камера не находится, посмотрите в роутере список клиентов: появился ли новый IP-адрес камеры. Сброс к заводским лучше оставить последним шагом, когда питание и сеть точно проверены.'
+    return 'Давайте сначала вернем камеру в приложение. Проверьте питание камеры и индикаторы, затем перезагрузите камеру и роутер. Если камера Wi‑Fi, убедитесь, что телефон подключен к той же сети 2.4 ГГц, а не к гостевой или 5 ГГц. После этого откройте приложение производителя и запустите локальный поиск устройства. Если камера не находится, посмотрите в роутере список клиентов: появился ли IP-адрес камеры?'
   }
   for (const [key, value] of Object.entries(mockResponses)) {
     if (text.toLowerCase().includes(key.toLowerCase().slice(0, 20))) return value
@@ -97,7 +97,7 @@ export default function ChatInterface() {
           messages: [...history, { role: 'user', content: text.trim() }],
         }),
       })
-      const responseText = response.error ? getFallbackResponse(text.trim()) : response.text || getFallbackResponse(text.trim())
+      const responseText = response.text || getFallbackResponse(text.trim())
       setTyping(false)
       setMessages(prev => [...prev, {
         id: generateId(),
@@ -123,8 +123,8 @@ export default function ChatInterface() {
   }, [])
 
   return (
-    <section className="bg-midnight">
-      <div className="flex h-[calc(100vh-220px)] min-h-[560px] max-h-[820px]">
+    <section className="bg-midnight border-b border-border-subtle">
+      <div className="flex h-[calc(100vh-73px)] min-h-[680px]">
         {/* Sidebar */}
         <AnimatePresence>
           {sidebarOpen && (

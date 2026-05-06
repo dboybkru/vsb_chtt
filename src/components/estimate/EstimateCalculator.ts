@@ -17,13 +17,20 @@ export interface Product {
 export interface EstimateLine {
   id: string; name: string; characteristics: string; unit: string;
   quantity: number; price: number; total: number; source: string; category: string;
+  sku?: string; brand?: string; image?: string;
 }
 
 export interface EstimateResult {
   cameraCount: number; baseCameraCount: number; cableMeters: number;
-  switchCount: number; buildingLength: number;
+  switchCount: number; buildingLength: number; perimeterCameraCount?: number;
+  workAttention?: number; pointAttention?: number;
   equipment: EstimateLine[]; works: EstimateLine[];
   totalEquipment: number; totalWorks: number; grandTotal: number;
+}
+
+export interface EstimateAttention {
+  workplaces?: number;
+  points?: number;
 }
 
 function idx(p: Product) {
@@ -32,10 +39,15 @@ function idx(p: Product) {
 
 function isIP(p: Product) {
   const i = idx(p);
-  return p.category==="Камеры" && (p.tags?.includes("ip")||i.includes(" ip ")||i.includes("ip-")||i.includes("poe")||i.includes("сетевая"));
+  const isAnalog = i.includes("ahd") || i.includes("tvi") || i.includes("cvi") || i.includes("аналог");
+  return p.category==="Камеры" && !isAnalog && (p.tags?.includes("ip")||i.includes(" ip ")||i.includes("ip-")||i.includes("ip камера")||i.includes("ip-камера")||i.includes("poe")||i.includes("сетевая"));
 }
 function hasRes(p: Product, r: string) {
-  const i = idx(p); return (p.resolution?.toLowerCase().includes(r.toLowerCase())||i.includes(r.toLowerCase()));
+  const target = r.replace(/\D/g, "");
+  const resolution = String(p.resolution || "").toLowerCase().replace("мп", "mp");
+  if (target && resolution.includes(`${target}mp`)) return true;
+  const name = String(p.name || "").toLowerCase();
+  return target === "4" && /ip-[a-z]*0?24(?:\.|_|-)/i.test(name);
 }
 function getCh(p: Product) {
   const n = Number(p.channels||0); if(n>0)return n;
@@ -55,6 +67,10 @@ function selCam(products: Product[], c: Complexity, cameraType: "IP" | "AHD" = "
       || fb("est-cam", `AHD-камера`, 0, "шт", "Камеры", "Не найдена в базе");
   }
   const r = c==="simple"?"2MP":"4MP";
+  const preferred4Mp = c !== "simple"
+    ? sel(products, p => isIP(p) && idx(p).includes("ip-e024.0(2.8)mp_v.0"))
+    : null;
+  if (preferred4Mp) return preferred4Mp;
   return sel(products, p=>isIP(p)&&hasRes(p,r)) || sel(products, isIP) || fb("est-cam",`IP-камера ${r}`,0,"шт","Камеры","Не найдена в базе");
 }
 function selNVR(products: Product[], n: number, cameraType: "IP" | "AHD" = "IP") {
@@ -74,18 +90,23 @@ function selCable(products: Product[]) {
   return sel(products,p=>idx(p).includes("optimus u5e-4x2x0.48 cu")) || fb("est-cable","Кабель Optimus U5e-4x2x0.48 Cu (IN)",CALC_CONSTANTS.cableMaterial,"м","Сеть","15 м на камеру");
 }
 
-function buildLen(area: number, type: ObjectType) {
-  if(area<=0)return 0; const b = Math.sqrt(area);
-  const m = type==="Дом"?1.2:type==="Производство"?1.5:1; return Math.round(b*m);
+function buildLen(area: number) {
+  if(area<=0)return 0;
+  return area / 10;
 }
 
-export function calculateEstimate(products: Product[], area: number, complexity: Complexity, type: ObjectType="Склад", cameraType: "IP" | "AHD" = "IP"): EstimateResult {
+export function calculateEstimate(products: Product[], area: number, complexity: Complexity, type: ObjectType="Склад", cameraType: "IP" | "AHD" = "IP", attention: EstimateAttention = {}): EstimateResult {
   const C = CALC_CONSTANTS;
-  const bl = buildLen(area, type);
-  let bcc = bl>0?Math.ceil(bl/C.cameraStepMeters):0;
-  if(bcc<1&&area>0)bcc=1;
-  const cm = complexity==="complex"?1.3:1;
-  const cc = Math.ceil(bcc*cm);
+  const bl = buildLen(area);
+  const workplaces = Math.max(0, Math.round(Number(attention.workplaces) || 0));
+  const points = Math.max(0, Math.round(Number(attention.points) || 0));
+  const perimeterCameraCount = Math.max(1, Math.ceil(bl / C.cameraStepMeters) + 1);
+  const bcc = type === "Дом"
+    ? 4
+    : perimeterCameraCount
+      + (["Офис","Производство"].includes(type) ? workplaces : 0)
+      + (["Магазин","Производство"].includes(type) ? points : 0);
+  const cc = complexity==="complex" && bcc > 10 ? Math.ceil(bcc * 1.3) : bcc;
   const cab = cc*C.cablePerCamera;
   const sc = cc>0?Math.ceil(cc/4):0;
   const cam = selCam(products, complexity, cameraType);
@@ -94,10 +115,10 @@ export function calculateEstimate(products: Product[], area: number, complexity:
   const cable = selCable(products);
 
   const eq: EstimateLine[] = [];
-  if(cc>0) eq.push({id:`cam-${cam.id}`,name:cam.name,characteristics:cam.description||cam.resolution||"",unit:"шт",quantity:cc,price:cam.price,total:cam.price*cc,source:cam.source||(cam.price>0?"каталог ВСБ39":"расчёт ВСБ39"),category:"Камеры"});
-  if(cc>0) eq.push({id:`nvr-${nvr.id}`,name:nvr.name,characteristics:nvr.description||`${getCh(nvr)} каналов`,unit:"шт",quantity:1,price:nvr.price,total:nvr.price,source:nvr.source||(nvr.price>0?"каталог ВСБ39":"расчёт ВСБ39"),category:"Регистраторы"});
-  if(sc>0) eq.push({id:`sw-${sw.id}`,name:sw.name,characteristics:sw.description||"PoE",unit:"шт",quantity:sc,price:sw.price,total:sw.price*sc,source:sw.source||(sw.price>0?"каталог ВСБ39":"расчёт ВСБ39"),category:"Сеть"});
-  if(cab>0) eq.push({id:`cable-${cable.id}`,name:cable.name,characteristics:cable.description||"",unit:"м",quantity:cab,price:cable.price,total:cable.price*cab,source:cable.source||(cable.price>0?"каталог ВСБ39":"расчёт ВСБ39"),category:"Сеть"});
+  if(cc>0) eq.push({id:`cam-${cam.id}`,name:cam.name,characteristics:cam.description||cam.resolution||"",unit:"шт",quantity:cc,price:cam.price,total:cam.price*cc,source:cam.source||(cam.price>0?"каталог ВСБ39":"расчёт ВСБ39"),category:"Камеры",sku:cam.sku||String(cam.id),brand:cam.brand,image:cam.image});
+  if(cc>0) eq.push({id:`nvr-${nvr.id}`,name:nvr.name,characteristics:nvr.description||`${getCh(nvr)} каналов`,unit:"шт",quantity:1,price:nvr.price,total:nvr.price,source:nvr.source||(nvr.price>0?"каталог ВСБ39":"расчёт ВСБ39"),category:"Регистраторы",sku:nvr.sku||String(nvr.id),brand:nvr.brand,image:nvr.image});
+  if(sc>0) eq.push({id:`sw-${sw.id}`,name:sw.name,characteristics:sw.description||"PoE",unit:"шт",quantity:sc,price:sw.price,total:sw.price*sc,source:sw.source||(sw.price>0?"каталог ВСБ39":"расчёт ВСБ39"),category:"Сеть",sku:sw.sku||String(sw.id),brand:sw.brand,image:sw.image});
+  if(cab>0) eq.push({id:`cable-${cable.id}`,name:cable.name,characteristics:cable.description||`${C.cablePerCamera} м на каждую камеру`,unit:"м",quantity:cab,price:C.cableMaterial,total:C.cableMaterial*cab,source:cable.source||(cable.price>0?"каталог ВСБ39":"расчёт ВСБ39"),category:"Сеть",sku:cable.sku||String(cable.id),brand:cable.brand,image:cable.image});
 
   const wk: EstimateLine[] = [];
   if(cc>0) wk.push({id:"w-cam",name:"Монтаж камеры",characteristics:"",unit:"шт",quantity:cc,price:C.cameraInstall,total:C.cameraInstall*cc,source:"норматив ВСБ39",category:"Монтаж"});
@@ -108,7 +129,7 @@ export function calculateEstimate(products: Product[], area: number, complexity:
 
   const te = eq.reduce((s,e)=>s+e.total,0);
   const tw = wk.reduce((s,w)=>s+w.total,0);
-  return {cameraCount:cc,baseCameraCount:bcc,cableMeters:cab,switchCount:sc,buildingLength:bl,equipment:eq,works:wk,totalEquipment:te,totalWorks:tw,grandTotal:te+tw};
+  return {cameraCount:cc,baseCameraCount:bcc,perimeterCameraCount,workAttention:workplaces,pointAttention:points,cableMeters:cab,switchCount:sc,buildingLength:bl,equipment:eq,works:wk,totalEquipment:te,totalWorks:tw,grandTotal:te+tw};
 }
 
 export function findAnalogs(product: Product, all: Product[]) {

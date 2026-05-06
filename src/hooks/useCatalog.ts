@@ -24,6 +24,8 @@ export interface EstimateState {
 
 const STORAGE_KEY = 'vsb39_estimate'
 const ITEMS_PER_PAGE = 12
+const CATALOG_PAGE_SIZE = 120
+let catalogSessionCache: Product[] | null = null
 
 const RU_TO_EN_LAYOUT: Record<string, string> = {
   й: 'q', ц: 'w', у: 'e', к: 'r', е: 't', н: 'y', г: 'u', ш: 'i', щ: 'o', з: 'p', х: '[', ъ: ']',
@@ -178,13 +180,28 @@ export function useCatalog() {
     let cancelled = false
 
     async function loadCatalog() {
+      if (catalogSessionCache?.length) {
+        setAllProducts(catalogSessionCache)
+        setIsLoadingCatalog(false)
+        return
+      }
       try {
-        const firstPage = await apiRequest<MaterialsResponse>('/materials?item_type=equipment&limit=500&offset=0')
+        const firstPage = await apiRequest<MaterialsResponse>(`/materials?item_type=equipment&limit=${CATALOG_PAGE_SIZE}&offset=0`)
         const pages = [firstPage]
+        const firstExternal = firstPage.items
+          .map((item, index) => normalizeExternalProduct(item, index))
+          .filter((item): item is Product => item !== null)
+
+        if (!cancelled && firstExternal.length > 0) {
+          const existingIds = new Set(firstExternal.map((item) => item.id))
+          setAllProducts([...firstExternal, ...fallbackProducts.filter((item) => !existingIds.has(item.id))])
+          setIsLoadingCatalog(false)
+        }
+
         let offset = firstPage.offset + firstPage.limit
-        while (firstPage.total > offset && pages.length < 10) {
-          pages.push(await apiRequest<MaterialsResponse>(`/materials?item_type=equipment&limit=500&offset=${offset}`))
-          offset += 500
+        while (!cancelled && firstPage.total > offset && pages.length < 20) {
+          pages.push(await apiRequest<MaterialsResponse>(`/materials?item_type=equipment&limit=${CATALOG_PAGE_SIZE}&offset=${offset}`))
+          offset += CATALOG_PAGE_SIZE
         }
         const external = pages.flatMap((page) => page.items)
           .map((item, index) => normalizeExternalProduct(item, index))
@@ -192,7 +209,9 @@ export function useCatalog() {
 
         if (!cancelled && external.length > 0) {
           const existingIds = new Set(external.map((item) => item.id))
-          setAllProducts([...external, ...fallbackProducts.filter((item) => !existingIds.has(item.id))])
+          const merged = [...external, ...fallbackProducts.filter((item) => !existingIds.has(item.id))]
+          catalogSessionCache = merged
+          setAllProducts(merged)
         }
       } catch (error) {
         try {
